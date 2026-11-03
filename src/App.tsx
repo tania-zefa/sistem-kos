@@ -40,7 +40,8 @@ function App() {
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'Semua Kategori' | Category>('Semua Kategori');
   const [form, setForm] = useState<FormState>({ transaction_date: '2025-06-25', transaction_number: '', description: '', category: 'Listrik', amount: '' });
-  const [dateFilter, setDateFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('semua');
+  const [periodMode, setPeriodMode] = useState<'semua' | 'bulan' | 'tahun'>('semua');
   const [profile, setProfile] = useState({ business_name: 'Harmoni Residence Kost Putri', business_address: 'Jl. Cempaka Raya No. 18, Tembalang, Kota Semarang', manager_name: 'Andi Setiawan' });
   const notify = useCallback((message: string) => { setNotice(message); window.setTimeout(() => setNotice(null), 3200); }, []);
   const load = useCallback(async () => {
@@ -78,7 +79,17 @@ function App() {
 
   const total = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
   const utilities = expenses.filter((item) => ['Listrik', 'Air', 'Internet/WiFi'].includes(item.category)).reduce((sum, item) => sum + Number(item.amount), 0);
-  const filtered = useMemo(() => expenses.filter((item) => `${item.transaction_number} ${item.description} ${item.category}`.toLowerCase().includes(query.toLowerCase()) && (categoryFilter === 'Semua Kategori' || item.category === categoryFilter) && (!dateFilter || item.transaction_date === dateFilter)), [expenses, query, categoryFilter, dateFilter]);
+  const filtered = useMemo(() => expenses.filter((item) => {
+    const matchSearch = `${item.transaction_number} ${item.description} ${item.category}`.toLowerCase().includes(query.toLowerCase());
+    const matchCategory = categoryFilter === 'Semua Kategori' || item.category === categoryFilter;
+    let matchDate = true;
+    if (periodMode === 'bulan' && dateFilter !== 'semua') {
+      matchDate = item.transaction_date.startsWith(dateFilter); // dateFilter = 'YYYY-MM'
+    } else if (periodMode === 'tahun' && dateFilter !== 'semua') {
+      matchDate = item.transaction_date.startsWith(dateFilter); // dateFilter = 'YYYY'
+    }
+    return matchSearch && matchCategory && matchDate;
+  }), [expenses, query, categoryFilter, dateFilter, periodMode]);
   const categoryTotals = categories.map((category) => ({ category, amount: expenses.filter((item) => item.category === category).reduce((sum, item) => sum + Number(item.amount), 0) })).filter((item) => item.amount > 0).sort((a, b) => b.amount - a.amount);
   const openAdd = () => { setEditing(null); setForm({ transaction_date: '2025-06-25', transaction_number: `BKK-250625-${String(expenses.length + 1).padStart(3, '0')}`, description: '', category: 'Listrik', amount: '' }); setModal('add'); };
   const openEdit = (item: Expense) => { setEditing(item); setForm({ transaction_date: item.transaction_date, transaction_number: item.transaction_number, description: item.description, category: item.category, amount: String(item.amount) }); setModal('edit'); };
@@ -88,7 +99,7 @@ function App() {
   const saveProfile = async (nextProfile: typeof profile) => { const result = await supabase.from('property_settings').update({ ...nextProfile, updated_at: new Date().toISOString() }).eq('id', 1); if (result.error) { notify('Profil usaha belum dapat disimpan.'); return; } setProfile(nextProfile); notify('Profil usaha berhasil disimpan.'); };
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'transaksi', label: 'Buku Transaksi', icon: Receipt }, { id: 'laporan', label: 'Laporan Akuntansi', icon: FileBarChart }, { id: 'kategori', label: 'Master Kategori', icon: Tags }, { id: 'pengaturan', label: 'Pengaturan', icon: Settings2 }];
 
-  return <div className="min-h-screen bg-slate-50 text-slate-800 selection:bg-emerald-100 selection:text-emerald-900"><header className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur"><div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"><div className="flex min-w-0 items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-900 text-white shadow-lg shadow-emerald-600/20"><Hotel size={20} /></div><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-base font-extrabold tracking-tight text-slate-900 sm:text-lg">Harmoni Residence</span><span className="hidden rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 sm:inline">Kost Putri</span></div><p className="hidden text-[11px] font-medium text-slate-500 sm:block">Sistem Informasi Akuntansi Kas Keluar</p></div></div><nav className="hidden items-center gap-1 lg:flex">{tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs transition ${tab === id ? 'border border-emerald-200 bg-emerald-50 font-bold text-emerald-700' : 'font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}><Icon size={15} />{label}</button>)}</nav><button onClick={openAdd} className="flex shrink-0 items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700"><Plus size={16} /><span className="hidden sm:inline">Catat Pengeluaran</span></button></div><nav className="flex overflow-x-auto border-t border-slate-100 px-2 py-1.5 lg:hidden">{tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setTab(id)} className={`flex min-w-fit flex-1 flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] ${tab === id ? 'font-bold text-emerald-700' : 'text-slate-500'}`}><Icon size={16} />{label.replace('Laporan Akuntansi', 'Laporan').replace('Buku Transaksi', 'Transaksi').replace('Master Kategori', 'Kategori')}</button>)}</nav></header><main className="mx-auto max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">{tab === 'dashboard' && <Dashboard expenses={expenses} total={total} utilities={utilities} categoryTotals={categoryTotals} loading={loading} photo={photo} setPhoto={setPhoto} openAdd={openAdd} setTab={setTab} openEdit={openEdit} setRemoveTarget={setRemoveTarget} />}{tab === 'transaksi' && <Transactions expenses={filtered} query={query} setQuery={setQuery} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} dateFilter={dateFilter} setDateFilter={setDateFilter} openAdd={openAdd} openEdit={openEdit} setRemoveTarget={setRemoveTarget} exportCsv={exportCsv} loading={loading} />}{tab === 'laporan' && <Reports expenses={expenses} categoryTotals={categoryTotals} exportCsv={exportCsv} />}{tab === 'kategori' && <Categories categoryTotals={categoryTotals} />}{tab === 'pengaturan' && <SettingsPage profile={profile} onSave={saveProfile} />} </main>{notice && <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-xl"><CheckCircle2 size={17} className="text-emerald-400" />{notice}</div>}{modal && <ExpenseModal mode={modal} form={form} setForm={setForm} onClose={() => setModal(null)} onSubmit={save} />}{removeTarget && <ConfirmDelete item={removeTarget} onClose={() => setRemoveTarget(null)} onConfirm={() => void remove()} />}</div>;
+  return <div className="min-h-screen bg-slate-50 text-slate-800 selection:bg-emerald-100 selection:text-emerald-900"><header className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur"><div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"><div className="flex min-w-0 items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-900 text-white shadow-lg shadow-emerald-600/20"><Hotel size={20} /></div><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-base font-extrabold tracking-tight text-slate-900 sm:text-lg">Harmoni Residence</span><span className="hidden rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 sm:inline">Kost Putri</span></div><p className="hidden text-[11px] font-medium text-slate-500 sm:block">Sistem Informasi Akuntansi Kas Keluar</p></div></div><nav className="hidden items-center gap-1 lg:flex">{tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs transition ${tab === id ? 'border border-emerald-200 bg-emerald-50 font-bold text-emerald-700' : 'font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}><Icon size={15} />{label}</button>)}</nav><button onClick={openAdd} className="flex shrink-0 items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700"><Plus size={16} /><span className="hidden sm:inline">Catat Pengeluaran</span></button></div><nav className="flex overflow-x-auto border-t border-slate-100 px-2 py-1.5 lg:hidden">{tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setTab(id)} className={`flex min-w-fit flex-1 flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] ${tab === id ? 'font-bold text-emerald-700' : 'text-slate-500'}`}><Icon size={16} />{label.replace('Laporan Akuntansi', 'Laporan').replace('Buku Transaksi', 'Transaksi').replace('Master Kategori', 'Kategori')}</button>)}</nav></header><main className="mx-auto max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">{tab === 'dashboard' && <Dashboard expenses={expenses} total={total} utilities={utilities} categoryTotals={categoryTotals} loading={loading} photo={photo} setPhoto={setPhoto} openAdd={openAdd} setTab={setTab} openEdit={openEdit} setRemoveTarget={setRemoveTarget} />}{tab === 'transaksi' && <Transactions expenses={filtered} query={query} setQuery={setQuery} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} dateFilter={dateFilter} setDateFilter={setDateFilter} periodMode={periodMode} setPeriodMode={setPeriodMode} allExpenses={expenses} openAdd={openAdd} openEdit={openEdit} setRemoveTarget={setRemoveTarget} exportCsv={exportCsv} loading={loading} />}{tab === 'laporan' && <Reports expenses={expenses} categoryTotals={categoryTotals} exportCsv={exportCsv} />}{tab === 'kategori' && <Categories categoryTotals={categoryTotals} />}{tab === 'pengaturan' && <SettingsPage profile={profile} onSave={saveProfile} />} </main>{notice && <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-xl"><CheckCircle2 size={17} className="text-emerald-400" />{notice}</div>}{modal && <ExpenseModal mode={modal} form={form} setForm={setForm} onClose={() => setModal(null)} onSubmit={save} />}{removeTarget && <ConfirmDelete item={removeTarget} onClose={() => setRemoveTarget(null)} onConfirm={() => void remove()} />}</div>;
 }
 
 function Dashboard({ expenses, total, utilities, categoryTotals, loading, photo, setPhoto, openAdd, setTab, openEdit, setRemoveTarget }: { expenses: Expense[]; total: number; utilities: number; categoryTotals: { category: Category; amount: number }[]; loading: boolean; photo: number; setPhoto: (value: number) => void; openAdd: () => void; setTab: (tab: Tab) => void; openEdit: (item: Expense) => void; setRemoveTarget: (item: Expense) => void }) {
@@ -126,7 +137,104 @@ function MonthlyChart({ total }: { total: number }) { const bars = [{ label: 'Ja
 function Amenity({ icon: Icon, label, tone }: { icon: typeof Wifi; label: string; tone: 'green' | 'blue' | 'rose' | 'amber' }) { const styles = { green: 'bg-emerald-100 text-emerald-700', blue: 'bg-sky-100 text-sky-700', rose: 'bg-rose-100 text-rose-700', amber: 'bg-amber-100 text-amber-700' }; return <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm"><div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs ${styles[tone]}`}><Icon size={13} /></div><span className="text-[10px] font-semibold leading-tight text-slate-700">{label}</span></div>; }
 function Metric({ title, value, icon: Icon, tone, note }: { title: string; value: string; icon: typeof Wallet; tone: 'green' | 'rose' | 'amber' | 'blue'; note: string }) { const styles = { green: 'bg-emerald-50 text-emerald-700 border-emerald-200', rose: 'bg-rose-50 text-rose-700 border-rose-200', amber: 'bg-amber-50 text-amber-700 border-amber-200', blue: 'bg-sky-50 text-sky-700 border-sky-200' }; return <div className="flex min-h-[132px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</span><span className={`rounded-lg border p-2 ${styles[tone]}`}><Icon size={15} /></span></div><div><p className="text-lg font-extrabold tracking-tight text-slate-900">{value}</p><p className="mt-1 text-[10px] font-medium text-slate-400">{note}</p></div></div>; }
 
-function Transactions({ expenses, query, setQuery, categoryFilter, setCategoryFilter, dateFilter, setDateFilter, openAdd, openEdit, setRemoveTarget, exportCsv, loading }: { expenses: Expense[]; query: string; setQuery: (value: string) => void; categoryFilter: 'Semua Kategori' | Category; setCategoryFilter: (value: 'Semua Kategori' | Category) => void; dateFilter: string; setDateFilter: (value: string) => void; openAdd: () => void; openEdit: (item: Expense) => void; setRemoveTarget: (item: Expense) => void; exportCsv: () => void; loading: boolean }) { return <><PageTitle eyebrow="Pencatatan kas" title="Buku Pengeluaran Kas" description="Daftar menyeluruh transaksi pembiayaan dan operasional Harmoni Residence." action={<button onClick={openAdd} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white"><Plus size={16} /> Catat Transaksi</button>} /><div className="rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="grid gap-3 border-b border-slate-100 p-4 md:grid-cols-[1fr_220px_auto]"><label className="relative"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari keterangan, nomor, atau kategori..." className="form-input pl-9" /></label><select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as 'Semua Kategori' | Category)} className="form-input"><option>Semua Kategori</option>{categories.map((category) => <option key={category}>{category}</option>)}</select><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="form-input" /><button onClick={exportCsv} className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600"><Download size={15} /> Unduh CSV</button></div><TransactionTable expenses={expenses} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} /></div></>; }
+function Transactions({ expenses, query, setQuery, categoryFilter, setCategoryFilter, dateFilter, setDateFilter, periodMode, setPeriodMode, allExpenses, openAdd, openEdit, setRemoveTarget, exportCsv, loading }: {
+  expenses: Expense[];
+  query: string;
+  setQuery: (value: string) => void;
+  categoryFilter: 'Semua Kategori' | Category;
+  setCategoryFilter: (value: 'Semua Kategori' | Category) => void;
+  dateFilter: string;
+  setDateFilter: (value: string) => void;
+  periodMode: 'semua' | 'bulan' | 'tahun';
+  setPeriodMode: (value: 'semua' | 'bulan' | 'tahun') => void;
+  allExpenses: Expense[];
+  openAdd: () => void;
+  openEdit: (item: Expense) => void;
+  setRemoveTarget: (item: Expense) => void;
+  exportCsv: () => void;
+  loading: boolean;
+}) {
+  // Ambil daftar bulan dan tahun unik dari data
+  const uniqueYears = [...new Set(allExpenses.map((e) => e.transaction_date.substring(0, 4)))].sort((a, b) => b.localeCompare(a));
+  const uniqueMonths = [...new Set(allExpenses.map((e) => e.transaction_date.substring(0, 7)))].sort((a, b) => b.localeCompare(a));
+  const monthNames: Record<string, string> = { '01': 'Januari', '02': 'Februari', '03': 'Maret', '04': 'April', '05': 'Mei', '06': 'Juni', '07': 'Juli', '08': 'Agustus', '09': 'September', '10': 'Oktober', '11': 'November', '12': 'Desember' };
+
+  const handleModeChange = (mode: 'semua' | 'bulan' | 'tahun') => {
+    setPeriodMode(mode);
+    setDateFilter('semua');
+  };
+
+  return (
+    <>
+      <PageTitle eyebrow="Pencatatan kas" title="Buku Pengeluaran Kas" description="Daftar menyeluruh transaksi pembiayaan dan operasional Harmoni Residence." action={<button onClick={openAdd} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white"><Plus size={16} /> Catat Transaksi</button>} />
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-3 border-b border-slate-100 p-4 md:grid-cols-[1fr_200px_auto_auto]">
+          {/* Search */}
+          <label className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari keterangan, nomor, atau kategori..." className="form-input pl-9" />
+          </label>
+
+          {/* Filter Kategori */}
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value as 'Semua Kategori' | Category)} className="form-input">
+            <option>Semua Kategori</option>
+            {categories.map((c) => <option key={c}>{c}</option>)}
+          </select>
+
+          {/* Pilihan Mode Periode */}
+          <div className="flex rounded-xl border border-slate-200 overflow-hidden">
+            {(['semua', 'bulan', 'tahun'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => handleModeChange(mode)}
+                className={`flex-1 px-3 py-2.5 text-xs font-bold transition ${periodMode === mode ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+              >
+                {mode === 'semua' ? 'Semua' : mode === 'bulan' ? 'Per Bulan' : 'Per Tahun'}
+              </button>
+            ))}
+          </div>
+
+          {/* Dropdown Pilihan Periode */}
+          {periodMode !== 'semua' && (
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="form-input"
+            >
+              <option value="semua">{periodMode === 'bulan' ? 'Pilih Bulan' : 'Pilih Tahun'}</option>
+              {periodMode === 'bulan'
+                ? uniqueMonths.map((ym) => {
+                    const [year, month] = ym.split('-');
+                    return <option key={ym} value={ym}>{monthNames[month]} {year}</option>;
+                  })
+                : uniqueYears.map((y) => <option key={y} value={y}>Tahun {y}</option>)
+              }
+            </select>
+          )}
+
+          {/* Tombol Export */}
+          <button onClick={exportCsv} className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50">
+            <Download size={15} /> Unduh CSV
+          </button>
+        </div>
+
+        {/* Info jumlah hasil filter */}
+        {(periodMode !== 'semua' && dateFilter !== 'semua') && (
+          <div className="flex items-center justify-between border-b border-slate-100 bg-emerald-50 px-4 py-2">
+            <span className="text-xs text-emerald-700 font-medium">
+              Menampilkan {expenses.length} transaksi
+              {periodMode === 'bulan' && dateFilter !== 'semua' ? ` — ${monthNames[dateFilter.split('-')[1]]} ${dateFilter.split('-')[0]}` : ''}
+              {periodMode === 'tahun' && dateFilter !== 'semua' ? ` — Tahun ${dateFilter}` : ''}
+            </span>
+            <button onClick={() => handleModeChange('semua')} className="text-xs font-bold text-emerald-700 hover:underline">Reset Filter</button>
+          </div>
+        )}
+
+        <TransactionTable expenses={expenses} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} />
+      </div>
+    </>
+  );
+}
 function Reports({ expenses, categoryTotals, exportCsv }: { expenses: Expense[]; categoryTotals: { category: Category; amount: number }[]; exportCsv: () => void }) { const [period, setPeriod] = useState<'harian' | 'bulanan' | 'tahunan'>('bulanan'); const total = expenses.reduce((sum, item) => sum + Number(item.amount), 0); const monthValues = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'].map((label, index) => ({ label, amount: index === 5 ? total : Math.max(total * (0.55 + index * 0.07), 1) })); const maxValue = Math.max(...monthValues.map((item) => item.amount), 1); return <><PageTitle eyebrow="Standard accounting suite" title="Laporan Akuntansi Kas Keluar" description="Rekapitulasi beban operasional dan evaluasi arus kas Harmoni Residence." action={<div className="flex gap-2"><button onClick={() => window.print()} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600"><Printer size={15} /> Cetak</button><button onClick={exportCsv} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white"><Download size={15} /> Ekspor</button></div>} /><div className="grid gap-4 sm:grid-cols-3"><Metric title="Total Beban Terverifikasi" value={rupiah(total)} icon={CircleDollarSign} tone="blue" note="Seluruh periode" /><Metric title="Kas Terealisasi" value={rupiah(total)} icon={CheckCircle2} tone="green" note="Telah dibayar" /><Metric title="Jumlah Transaksi" value={`${expenses.length} Trx`} icon={Receipt} tone="amber" note="Data tercatat" /></div><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 className="text-sm font-bold text-slate-900">Grafik Pengeluaran {period === 'harian' ? 'Harian' : period === 'tahunan' ? 'Tahunan' : 'Bulanan'}</h2><p className="mt-1 text-xs text-slate-500">Visualisasi pengeluaran untuk membantu evaluasi biaya.</p></div><select value={period} onChange={(event) => setPeriod(event.target.value as 'harian' | 'bulanan' | 'tahunan')} className="form-input w-auto"><option value="harian">Harian</option><option value="bulanan">Bulanan</option><option value="tahunan">Tahunan</option></select></div><div className="mt-6 flex h-44 items-end gap-3 border-b border-l border-slate-100 px-3 sm:gap-6 sm:px-8">{monthValues.map((item) => <div key={item.label} className="flex h-full flex-1 flex-col items-center justify-end gap-2"><div className="w-full max-w-10 rounded-t-lg bg-emerald-500 transition hover:bg-emerald-600" style={{ height: `${Math.max((item.amount / maxValue) * 85, 6)}%` }} /><span className="text-[10px] text-slate-500">{item.label}</span></div>)}</div></div><div className="grid gap-6 lg:grid-cols-5"><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3"><h2 className="text-sm font-bold text-slate-900">Rekapitulasi Beban per Kategori</h2><p className="mt-1 text-xs text-slate-500">Komposisi biaya operasional usaha kos.</p><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[460px] text-left text-xs"><thead className="border-b border-slate-100 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="py-3">Kategori</th><th className="py-3 text-center">Transaksi</th><th className="py-3 text-right">Total Beban</th><th className="py-3 text-right">Porsi</th></tr></thead><tbody className="divide-y divide-slate-50">{categoryTotals.map(({ category, amount }) => <tr key={category}><td className="py-3 font-semibold text-slate-700">{category}</td><td className="py-3 text-center text-slate-500">{expenses.filter((item) => item.category === category).length}</td><td className="py-3 text-right font-bold text-slate-800">{rupiah(amount)}</td><td className="py-3 text-right font-bold text-emerald-700">{total ? `${((amount / total) * 100).toFixed(1)}%` : '0%'}</td></tr>)}</tbody></table></div></div><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2"><h2 className="text-sm font-bold text-slate-900">Catatan Pengelolaan Kas</h2><div className="mt-5 space-y-3 text-xs text-slate-600"><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><b className="text-slate-800">1. Kas kecil</b><p className="mt-1 leading-5 text-slate-500">Pengeluaran harian dan kebersihan dicatat segera agar saldo kas tetap terpantau.</p></div><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><b className="text-slate-800">2. Verifikasi rutin</b><p className="mt-1 leading-5 text-slate-500">Cocokkan buku kas dengan bukti pembayaran setiap akhir periode.</p></div></div><div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs"><span className="text-slate-500">Status pembukuan</span><b className="text-emerald-700">Terverifikasi Seimbang</b></div></div></div></>; }
 function SettingsPage({ profile, onSave }: { profile: { business_name: string; business_address: string; manager_name: string }; onSave: (profile: { business_name: string; business_address: string; manager_name: string }) => Promise<void> }) { const [draft, setDraft] = useState(profile); useEffect(() => setDraft(profile), [profile]); return <><PageTitle eyebrow="Preferensi aplikasi" title="Pengaturan" description="Kelola profil usaha kos dan informasi akun administrator." /><div className="grid max-w-5xl gap-6 lg:grid-cols-[220px_1fr]"><div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"><div className="flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700"><Settings2 size={16} /> Profil usaha</div><div className="mt-1 flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-medium text-slate-500"><Users size={16} /> Akun pengguna</div></div><form onSubmit={(event) => { event.preventDefault(); void onSave(draft); }} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="border-b border-slate-100 pb-5"><h2 className="text-sm font-bold text-slate-900">Informasi usaha kos</h2><p className="mt-1 text-xs text-slate-500">Informasi ini akan tampil di area properti dan laporan.</p></div><div className="mt-6 space-y-5"><label><span className="form-label">Nama usaha</span><input value={draft.business_name} onChange={(event) => setDraft({ ...draft, business_name: event.target.value })} className="form-input" required /></label><label><span className="form-label">Alamat usaha</span><textarea value={draft.business_address} onChange={(event) => setDraft({ ...draft, business_address: event.target.value })} rows={3} className="form-input resize-none" required /></label><label><span className="form-label">Nama administrator</span><input value={draft.manager_name} onChange={(event) => setDraft({ ...draft, manager_name: event.target.value })} className="form-input" required /></label><div className="flex justify-end border-t border-slate-100 pt-5"><button type="submit" className="rounded-xl bg-emerald-600 px-5 py-3 text-xs font-bold text-white">Simpan Perubahan</button></div></div></form></div></>; }
 function Categories({ categoryTotals }: { categoryTotals: { category: Category; amount: number }[] }) { return <><PageTitle eyebrow="Master data" title="Kategori Biaya Operasional" description="Daftar pos pengeluaran yang digunakan dalam pencatatan kas keluar." /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{categories.map((category) => <div key={category} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className={`mb-5 flex h-10 w-10 items-center justify-center rounded-xl border ${categoryColors[category]}`}><Tags size={18} /></div><h2 className="text-sm font-bold text-slate-800">{category}</h2><p className="mt-2 text-xs text-slate-500">{categoryTotals.find((item) => item.category === category)?.amount ? rupiah(categoryTotals.find((item) => item.category === category)?.amount ?? 0) : 'Belum ada transaksi'}</p></div>)}</div></>; }
