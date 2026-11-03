@@ -56,8 +56,25 @@ const methodMeta: Record<PaymentMethod, { bg: string; text: string }> = {
   'Lainnya':                 { bg: 'bg-slate-100',   text: 'text-slate-500' },
 };
 
+// Safe accessor untuk methodMeta — handle nilai lama dari DB
+function getMethodMeta(pm: string | null | undefined) {
+  const key = pm as PaymentMethod;
+  return methodMeta[key] ?? methodMeta['Kas Tunai (Petty Cash)'];
+}
+
+// Safe accessor untuk categoryMeta
+function getCategoryMeta(cat: string | null | undefined) {
+  const key = cat as Category;
+  return categoryMeta[key] ?? categoryMeta['Biaya Lainnya'];
+}
+
+// Safe accessor untuk statusMeta
+function getStatusMeta(st: string | null | undefined) {
+  const key = (st ?? 'Lunas') as PaymentStatus;
+  return statusMeta[key] ?? statusMeta['Lunas'];
+}
+
 const propertyPhotos = [
-  { url: 'https://images.pexels.com/photos/4493552/pexels-photo-4493552.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Fasad',  title: 'Bangunan Kos Modern Minimalis' },
   { url: 'https://images.pexels.com/photos/6487950/pexels-photo-6487950.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Kamar',  title: 'Kamar Single Cozy & Terang' },
   { url: 'https://images.pexels.com/photos/33389378/pexels-photo-33389378.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Pantry', title: 'Dapur Komunal Bersih' },
   { url: 'https://images.pexels.com/photos/15143517/pexels-photo-15143517.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Parkir', title: 'Area Parkir Aman & Beratap' },
@@ -290,7 +307,7 @@ function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidL
   return (
     <div className="space-y-6">
       {/* ── HERO ── */}
-      <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-card-md">
+      <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-md">
         <div className="grid lg:grid-cols-5">
           {/* Left info */}
           <div className="flex flex-col justify-between gap-6 p-7 lg:col-span-3">
@@ -322,7 +339,7 @@ function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidL
 
           {/* Photo gallery */}
           <div className="border-t border-slate-100 bg-slate-50/60 p-5 lg:col-span-2 lg:border-l lg:border-t-0">
-            <div className="group relative h-52 overflow-hidden rounded-2xl bg-slate-200 shadow-card">
+            <div className="group relative h-52 overflow-hidden rounded-2xl bg-slate-200 shadow-sm">
               <img src={propertyPhotos[photo].url} alt={propertyPhotos[photo].title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -384,13 +401,13 @@ function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidL
               <div key={category}>
                 <div className="mb-1.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${categoryMeta[category].dot}`} />
+                    <span className={`h-2 w-2 rounded-full ${getCategoryMeta(category).dot}`} />
                     <span className="text-xs font-medium text-slate-600">{category}</span>
                   </div>
                   <span className="text-xs font-semibold text-slate-800">{rupiahShort(amount)}</span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                  <div className={`h-full rounded-full ${categoryMeta[category].dot} opacity-70 transition-all duration-500`} style={{width:`${Math.max((amount/(total||1))*100,4)}%`}} />
+                <div className={`h-1.5 w-full overflow-hidden rounded-full bg-slate-100`}>
+                  <div className={`h-full rounded-full ${getCategoryMeta(category).dot} opacity-70 transition-all duration-500`} style={{width:`${Math.max((amount/(total||1))*100,4)}%`}} />
                 </div>
               </div>
             ))}
@@ -611,7 +628,7 @@ function Reports({ expenses, categoryTotals, exportCsv }: { expenses:Expense[]; 
                   <tr key={category} className="hover:bg-slate-50/80">
                     <td className="table-cell">
                       <div className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${categoryMeta[category].dot}`} />
+                        <span className={`h-2 w-2 rounded-full ${getCategoryMeta(category).dot}`} />
                         <span className="font-medium text-slate-700">{category}</span>
                       </div>
                     </td>
@@ -668,8 +685,8 @@ function Categories({ categoryTotals, total }: { categoryTotals:{category:Catego
           const data = categoryTotals.find(e=>e.category===cat);
           const pct  = total && data ? ((data.amount/total)*100).toFixed(0) : '0';
           return (
-            <div key={cat} className="card p-5 transition-all hover:shadow-card-md">
-              <div className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl border ${categoryMeta[cat].color}`}>
+            <div key={cat} className="card p-5 transition-all hover:shadow-md">
+              <div className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl border ${getCategoryMeta(cat).color}`}>
                 <Tags size={16} />
               </div>
               <h3 className="text-sm font-semibold text-slate-800">{cat}</h3>
@@ -677,7 +694,7 @@ function Categories({ categoryTotals, total }: { categoryTotals:{category:Catego
               {data?.amount ? (
                 <div className="mt-3">
                   <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className={`h-full rounded-full ${categoryMeta[cat].dot} opacity-70`} style={{width:`${pct}%`}} />
+                    <div className={`h-full rounded-full ${getCategoryMeta(cat).dot} opacity-70`} style={{width:`${pct}%`}} />
                   </div>
                   <p className="mt-1.5 text-[10px] font-medium text-slate-400">{pct}% dari total beban</p>
                 </div>
@@ -766,8 +783,8 @@ function TxTable({ expenses, loading, openEdit, setRemoveTarget, onLunaskan, com
                 </td>
                 <td className="table-cell max-w-[220px]">
                   <p className="font-medium text-slate-800 leading-snug">{item.description}</p>
-                  <span className={`mt-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${categoryMeta[item.category].color}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${categoryMeta[item.category].dot}`} />{item.category}
+                  <span className={`mt-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${getCategoryMeta(item.category).color}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${getCategoryMeta(item.category).dot}`} />{item.category}
                   </span>
                 </td>
                 <td className="table-cell">
@@ -781,7 +798,7 @@ function TxTable({ expenses, loading, openEdit, setRemoveTarget, onLunaskan, com
                 </td>
                 <td className="table-cell whitespace-nowrap font-bold text-slate-900">{rupiah(Number(item.amount))}</td>
                 <td className="table-cell whitespace-nowrap">
-                  <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold ${methodMeta[item.payment_method??'Kas Tunai (Petty Cash)'].bg} ${methodMeta[item.payment_method??'Kas Tunai (Petty Cash)'].text}`}>
+                  <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold ${getMethodMeta(item.payment_method).bg} ${getMethodMeta(item.payment_method).text}`}>
                     <CreditCard size={9}/>{item.payment_method??'Tunai'}
                   </span>
                 </td>
@@ -811,9 +828,8 @@ function TxTable({ expenses, loading, openEdit, setRemoveTarget, onLunaskan, com
 /* ════════════════════════════════════════════════
    SHARED — STATUS BADGE
 ════════════════════════════════════════════════ */
-function StatusBadge({ status }: { status?: PaymentStatus }) {
-  const s = status ?? 'Lunas';
-  const m = statusMeta[s];
+function StatusBadge({ status }: { status?: string }) {
+  const m = getStatusMeta(status);
   const Icon = m.icon;
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${m.bg} ${m.text} ${m.border}`}>
@@ -918,7 +934,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Preview:</span>
             <StatusBadge status={form.status} />
-            <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold ${methodMeta[form.payment_method].bg} ${methodMeta[form.payment_method].text}`}>
+            <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold ${getMethodMeta(form.payment_method).bg} ${getMethodMeta(form.payment_method).text}`}>
               <CreditCard size={10}/>{form.payment_method}
             </span>
             {form.unit_kamar && form.unit_kamar!=='Semua Kamar' && (
