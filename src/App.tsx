@@ -163,14 +163,31 @@ function App() {
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const payload = { ...form, amount: Number(form.amount) };
-    if (!payload.description || !payload.transaction_number || !payload.amount) {
+    const { status, payment_method, ...coreForm } = form;
+    const corePayload = { ...coreForm, amount: Number(form.amount) };
+    const fullPayload = { ...corePayload, status, payment_method };
+
+    if (!corePayload.description || !corePayload.transaction_number || !corePayload.amount) {
       notify('Lengkapi semua data transaksi terlebih dahulu.'); return;
     }
-    const result = editing
-      ? await supabase.from('cash_expenses').update(payload).eq('id', editing.id).select('*').maybeSingle()
-      : await supabase.from('cash_expenses').insert(payload).select('*').maybeSingle();
-    if (result.error || !result.data) { notify('Transaksi belum dapat disimpan.'); return; }
+
+    // Coba simpan dengan semua kolom (termasuk status & payment_method)
+    let result = editing
+      ? await supabase.from('cash_expenses').update(fullPayload).eq('id', editing.id).select('*').maybeSingle()
+      : await supabase.from('cash_expenses').insert(fullPayload).select('*').maybeSingle();
+
+    // Jika gagal karena kolom belum ada, fallback ke kolom dasar saja
+    if (result.error) {
+      console.warn('Kolom status/payment_method mungkin belum ada, fallback ke core payload:', result.error.message);
+      result = editing
+        ? await supabase.from('cash_expenses').update(corePayload).eq('id', editing.id).select('*').maybeSingle()
+        : await supabase.from('cash_expenses').insert(corePayload).select('*').maybeSingle();
+    }
+
+    if (result.error || !result.data) {
+      notify('Transaksi belum dapat disimpan: ' + (result.error?.message ?? 'data kosong'));
+      return;
+    }
     setExpenses((items) =>
       editing ? items.map((i) => (i.id === editing.id ? (result.data as Expense) : i)) : [result.data as Expense, ...items]
     );
