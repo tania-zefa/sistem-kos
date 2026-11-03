@@ -125,16 +125,16 @@ function App() {
   }, []);
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const totalLunas = expenses.filter((e) => e.status === 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
-  const totalBelumLunas = expenses.filter((e) => e.status !== 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalLunas = expenses.filter((e) => (e.status ?? 'Lunas') === 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalBelumLunas = expenses.filter((e) => (e.status ?? 'Lunas') !== 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
   const utilities = expenses.filter((e) => ['Listrik', 'Air', 'Internet/WiFi'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
-  const unpaidList = expenses.filter((e) => e.status !== 'Lunas');
+  const unpaidList = expenses.filter((e) => (e.status ?? 'Lunas') !== 'Lunas');
   const ratio = total ? Math.round((totalLunas / total) * 100) : 100;
 
   const filtered = useMemo(() => expenses.filter((item) => {
     const matchSearch = `${item.transaction_number} ${item.description} ${item.category}`.toLowerCase().includes(query.toLowerCase());
     const matchCategory = categoryFilter === 'Semua Kategori' || item.category === categoryFilter;
-    const matchStatus = statusFilter === 'Semua Status' || item.status === statusFilter;
+    const matchStatus = statusFilter === 'Semua Status' || (item.status ?? 'Lunas') === statusFilter;
     let matchDate = true;
     if (periodMode === 'bulan' && dateFilter !== 'semua') matchDate = item.transaction_date.startsWith(dateFilter);
     else if (periodMode === 'tahun' && dateFilter !== 'semua') matchDate = item.transaction_date.startsWith(dateFilter);
@@ -507,8 +507,8 @@ function Transactions({ expenses, allExpenses, query, setQuery, categoryFilter, 
 /* ─────────────── LAPORAN ─────────────── */
 function Reports({ expenses, categoryTotals, exportCsv }: { expenses: Expense[]; categoryTotals: { category: Category; amount: number }[]; exportCsv: () => void }) {
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const totalLunas = expenses.filter((e) => e.status === 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
-  const totalBelum = expenses.filter((e) => e.status !== 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalLunas = expenses.filter((e) => (e.status ?? 'Lunas') === 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalBelum = expenses.filter((e) => (e.status ?? 'Lunas') !== 'Lunas').reduce((sum, e) => sum + Number(e.amount), 0);
   return (
     <>
       <PageTitle eyebrow="Standard accounting suite" title="Laporan Akuntansi Kas Keluar" description="Rekapitulasi beban operasional dan evaluasi arus kas Harmoni Residence."
@@ -635,10 +635,11 @@ function PageTitle({ eyebrow, title, description, action }: { eyebrow: string; t
   );
 }
 
-function StatusBadge({ status }: { status: PaymentStatus }) {
-  const cfg = statusConfig[status];
+function StatusBadge({ status }: { status?: PaymentStatus }) {
+  const s: PaymentStatus = status ?? 'Lunas';
+  const cfg = statusConfig[s];
   const Icon = cfg.icon;
-  return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${cfg.color}`}><Icon size={11} />{status}</span>;
+  return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${cfg.color}`}><Icon size={11} />{s}</span>;
 }
 
 function TransactionTable({ expenses, loading, openEdit, setRemoveTarget, compact = false }: {
