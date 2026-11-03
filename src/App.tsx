@@ -744,8 +744,8 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl animate-slide-up">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm p-4 pt-6 animate-fade-in">
+      <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl animate-slide-up my-auto">
         {/* Header */}
         <div className="flex items-center justify-between rounded-t-3xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
