@@ -266,7 +266,7 @@ function App() {
 
       {/* ── TOAST ── */}
       {notice && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium shadow-modal animate-slide-up ${notice.type==='error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
+        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium shadow-2xl animate-slide-up ${notice.type==='error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
           {notice.type==='error' ? <X size={16} className="text-red-200" /> : <CheckCircle2 size={16} className="text-emerald-400" />}
           {notice.msg}
         </div>
@@ -307,9 +307,9 @@ function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidL
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[{icon:Wifi,label:'Wi-Fi 100Mbps',c:'emerald'},{icon:Building2,label:'AC & Heater',c:'sky'},{icon:ShieldCheck,label:'CCTV 24 Jam',c:'rose'},{icon:Settings2,label:'Smart Lock',c:'amber'}].map(({icon:Icon,label,c}) => (
+              {[{icon:Wifi,label:'Wi-Fi 100Mbps',bg:'bg-emerald-100',tc:'text-emerald-600'},{icon:Building2,label:'AC & Heater',bg:'bg-sky-100',tc:'text-sky-600'},{icon:ShieldCheck,label:'CCTV 24 Jam',bg:'bg-rose-100',tc:'text-rose-600'},{icon:Settings2,label:'Smart Lock',bg:'bg-amber-100',tc:'text-amber-600'}].map(({icon:Icon,label,bg,tc}) => (
                 <div key={label} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2.5">
-                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-${c}-100 text-${c}-600`}><Icon size={13} /></div>
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${bg} ${tc}`}><Icon size={13} /></div>
                   <span className="text-[10px] font-medium text-slate-600 leading-tight">{label}</span>
                 </div>
               ))}
@@ -345,20 +345,20 @@ function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidL
       {/* ── METRIC CARDS ── */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[
-          { label:'Kas Terealisasi', value:rupiah(totalLunas), sub:`${expenses.filter(e=>(e.status??'Lunas')==='Lunas').length} transaksi lunas`, icon:Wallet, bg:'bg-emerald-500', light:'bg-emerald-50', text:'text-emerald-600', trend:'+' },
-          { label:'Belum Dilunasi',  value:rupiah(totalBelum), sub:`${unpaidList.length} transaksi pending`,                                          icon:CircleDollarSign, bg:'bg-red-500',     light:'bg-red-50',     text:'text-red-600',     trend:'-' },
-          { label:'Utilitas & WiFi', value:rupiah(utilities),  sub:'Listrik / Air / Internet',                                                        icon:Zap,              bg:'bg-amber-500',   light:'bg-amber-50',   text:'text-amber-600',   trend:'~' },
-          { label:'Total Beban',     value:rupiah(total),      sub:`${expenses.length} total transaksi`,                                              icon:BarChart3,        bg:'bg-blue-500',    light:'bg-blue-50',    text:'text-blue-600',    trend:'~' },
-          { label:'Rasio Pelunasan', value:`${ratio}%`,         sub:'Realisasi pembayaran',                                                            icon:TrendingUp,       bg:'bg-emerald-500', light:'bg-emerald-50', text:'text-emerald-600', trend:'+' },
-        ].map(({ label, value, sub, icon: Icon, bg, light, text }) => (
-          <div key={label} className="card group relative overflow-hidden p-5 transition-all hover:shadow-card-md">
+          { label:'Kas Terealisasi', value:rupiah(totalLunas), sub:`${expenses.filter(e=>(e.status??'Lunas')==='Lunas').length} transaksi lunas`, icon:Wallet,          ibg:'bg-emerald-500', light:'bg-emerald-50', tc:'text-emerald-600' },
+          { label:'Belum Dilunasi',  value:rupiah(totalBelum), sub:`${unpaidList.length} transaksi pending`,                                          icon:CircleDollarSign, ibg:'bg-red-500',     light:'bg-red-50',     tc:'text-red-600' },
+          { label:'Utilitas & WiFi', value:rupiah(utilities),  sub:'Listrik / Air / Internet',                                                        icon:Zap,              ibg:'bg-amber-500',   light:'bg-amber-50',   tc:'text-amber-600' },
+          { label:'Total Beban',     value:rupiah(total),      sub:`${expenses.length} total transaksi`,                                              icon:BarChart3,        ibg:'bg-blue-500',    light:'bg-blue-50',    tc:'text-blue-600' },
+          { label:'Rasio Pelunasan', value:`${ratio}%`,         sub:'Realisasi pembayaran',                                                            icon:TrendingUp,       ibg:'bg-emerald-500', light:'bg-emerald-50', tc:'text-emerald-600' },
+        ].map(({ label, value, sub, icon: Icon, ibg, light, tc }) => (
+          <div key={label} className="card group relative overflow-hidden p-5 transition-all hover:shadow-md">
             <div className={`absolute right-0 top-0 h-24 w-24 rounded-full ${light} opacity-60 blur-2xl -translate-y-1/2 translate-x-1/2`} />
             <div className="flex items-start justify-between">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{label}</span>
-              <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${bg} text-white shadow-sm`}><Icon size={14} /></div>
+              <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${ibg} text-white shadow-sm`}><Icon size={14} /></div>
             </div>
             <p className="mt-3 text-xl font-bold tracking-tight text-slate-900">{value}</p>
-            <p className={`mt-1 text-[11px] font-medium ${text}`}>{sub}</p>
+            <p className={`mt-1 text-[11px] font-medium ${tc}`}>{sub}</p>
           </div>
         ))}
       </div>
@@ -574,17 +574,17 @@ function Reports({ expenses, categoryTotals, exportCsv }: { expenses:Expense[]; 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          {label:'Total Beban',icon:CircleDollarSign,value:rupiah(total),sub:'Seluruh periode',c:'blue'},
-          {label:'Kas Terealisasi',icon:CheckCircle2,value:rupiah(totalLunas),sub:'Sudah dibayar',c:'emerald'},
-          {label:'Belum Dilunasi',icon:Clock,value:rupiah(totalBelum),sub:`${expenses.filter(e=>(e.status??'Lunas')!=='Lunas').length} transaksi pending`,c:'red'},
-        ].map(({label,icon:Icon,value,sub,c})=>(
+          {label:'Total Beban',    icon:CircleDollarSign, value:rupiah(total),      sub:'Seluruh periode',                                                                                   ibg:'bg-blue-50',    tc:'text-blue-600'},
+          {label:'Kas Terealisasi',icon:CheckCircle2,     value:rupiah(totalLunas), sub:'Sudah dibayar',                                                                                     ibg:'bg-emerald-50', tc:'text-emerald-600'},
+          {label:'Belum Dilunasi', icon:Clock,            value:rupiah(totalBelum), sub:`${expenses.filter(e=>(e.status??'Lunas')!=='Lunas').length} transaksi pending`,                     ibg:'bg-red-50',     tc:'text-red-600'},
+        ].map(({label,icon:Icon,value,sub,ibg,tc})=>(
           <div key={label} className="card p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500">{label}</span>
-              <div className={`rounded-xl bg-${c}-50 p-2 text-${c}-600`}><Icon size={16}/></div>
+              <div className={`rounded-xl p-2 ${ibg} ${tc}`}><Icon size={16}/></div>
             </div>
             <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">{value}</p>
-            <p className={`mt-1 text-xs font-medium text-${c}-600`}>{sub}</p>
+            <p className={`mt-1 text-xs font-medium ${tc}`}>{sub}</p>
           </div>
         ))}
       </div>
@@ -834,7 +834,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 backdrop-blur-sm p-4 sm:items-center">
-      <div className="w-full max-w-2xl rounded-3xl bg-white shadow-modal animate-slide-up">
+      <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between rounded-t-3xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-7 py-5 text-white">
           <div className="flex items-center gap-3">
@@ -945,7 +945,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
 function ConfirmDelete({ item, onClose, onConfirm }: { item:Expense; onClose:()=>void; onConfirm:()=>void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-modal animate-slide-up">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-2xl animate-slide-up">
         <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500"><Trash2 size={20}/></div>
         <h3 className="text-base font-bold text-slate-900">Hapus transaksi ini?</h3>
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
