@@ -744,10 +744,10 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm p-4 pt-6 animate-fade-in">
-      <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl animate-slide-up my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between rounded-t-3xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-5 text-white">
+        <div className="flex items-center justify-between rounded-t-3xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4 text-white">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20"><Receipt size={18}/></div>
             <div>
@@ -758,9 +758,9 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-white/20"><X size={19}/></button>
         </div>
 
-        <form onSubmit={onSubmit} className="p-6 space-y-4">
+        <form onSubmit={onSubmit} className="p-5 space-y-3">
           {/* Baris 1: No BKK + Tanggal */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label>
               <span className="form-label">Nomor BKK <span className="font-normal text-slate-400">(Otomatis)</span></span>
               <input value={form.transaction_number} onChange={e=>upd('transaction_number',e.target.value)} className="form-input font-mono" required />
@@ -772,7 +772,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
           </div>
 
           {/* Baris 2: Kategori + Unit/Kamar */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label>
               <span className="form-label">Kategori Biaya</span>
               <select value={form.category} onChange={e=>upd('category',e.target.value)} className="form-input">
@@ -796,7 +796,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
           </label>
 
           {/* Vendor + Nominal */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label>
               <span className="form-label">Vendor / Penerima Uang</span>
               <input value={form.vendor} onChange={e=>upd('vendor',e.target.value)}
@@ -812,7 +812,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
           </div>
 
           {/* Metode + Status */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label>
               <span className="form-label">Metode Pembayaran</span>
               <select value={form.payment_method} onChange={e=>upd('payment_method',e.target.value)} className="form-input">
@@ -830,7 +830,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
           </div>
 
           {/* Preview badge */}
-          <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Preview:</span>
             <StatusBadge status={form.status} />
             <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold ${methodConfig[form.payment_method]}`}>
@@ -842,7 +842,7 @@ function ExpenseModal({ mode, form, setForm, onClose, onSubmit, expenseCount }: 
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
             <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Batal</button>
             <button type="submit" className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700">
               <Check size={14}/>{mode==='add'?'Simpan Transaksi':'Simpan Perubahan'}
