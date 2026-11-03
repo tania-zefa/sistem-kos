@@ -217,6 +217,16 @@ function App() {
     notify(editing ? 'Transaksi berhasil diperbarui.' : 'Transaksi berhasil dicatat.');
   };
 
+  const lunaskan = async (item: Expense) => {
+    const { error } = await supabase
+      .from('cash_expenses')
+      .update({ status: 'Lunas' })
+      .eq('id', item.id);
+    if (error) { notify('Gagal melunaskan transaksi.'); return; }
+    setExpenses((items) => items.map((i) => i.id === item.id ? { ...i, status: 'Lunas' } : i));
+    notify(`✅ ${item.transaction_number} berhasil dilunaskan.`);
+  };
+
   const remove = async () => {
     if (!removeTarget) return;
     const { error } = await supabase.from('cash_expenses').delete().eq('id', removeTarget.id);
@@ -290,8 +300,8 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        {tab === 'dashboard'  && <Dashboard expenses={expenses} total={total} totalLunas={totalLunas} totalBelum={totalBelum} utilities={utilities} unpaidList={unpaidList} ratio={ratio} categoryTotals={categoryTotals} loading={loading} photo={photo} setPhoto={setPhoto} openAdd={openAdd} setTab={setTab} openEdit={openEdit} setRemoveTarget={setRemoveTarget} />}
-        {tab === 'transaksi'  && <Transactions expenses={filtered} allExpenses={expenses} query={query} setQuery={setQuery} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} dateFilter={dateFilter} setDateFilter={setDateFilter} periodMode={periodMode} setPeriodMode={setPeriodMode} openAdd={openAdd} openEdit={openEdit} setRemoveTarget={setRemoveTarget} exportCsv={exportCsv} loading={loading} />}
+        {tab === 'dashboard'  && <Dashboard expenses={expenses} total={total} totalLunas={totalLunas} totalBelum={totalBelum} utilities={utilities} unpaidList={unpaidList} ratio={ratio} categoryTotals={categoryTotals} loading={loading} photo={photo} setPhoto={setPhoto} openAdd={openAdd} setTab={setTab} openEdit={openEdit} setRemoveTarget={setRemoveTarget} onLunaskan={lunaskan} />}
+        {tab === 'transaksi'  && <Transactions expenses={filtered} allExpenses={expenses} query={query} setQuery={setQuery} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} dateFilter={dateFilter} setDateFilter={setDateFilter} periodMode={periodMode} setPeriodMode={setPeriodMode} openAdd={openAdd} openEdit={openEdit} setRemoveTarget={setRemoveTarget} exportCsv={exportCsv} loading={loading} onLunaskan={lunaskan} />}
         {tab === 'laporan'    && <Reports expenses={expenses} categoryTotals={categoryTotals} exportCsv={exportCsv} />}
         {tab === 'kategori'   && <Categories categoryTotals={categoryTotals} />}
         {tab === 'pengaturan' && <SettingsPage profile={profile} onSave={saveProfile} />}
@@ -309,11 +319,12 @@ function App() {
 }
 
 /* ─── DASHBOARD ─── */
-function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidList, ratio, categoryTotals, loading, photo, setPhoto, openAdd, setTab, openEdit, setRemoveTarget }: {
+function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidList, ratio, categoryTotals, loading, photo, setPhoto, openAdd, setTab, openEdit, setRemoveTarget, onLunaskan }: {
   expenses: Expense[]; total: number; totalLunas: number; totalBelum: number; utilities: number;
   unpaidList: Expense[]; ratio: number; categoryTotals: { category: Category; amount: number }[];
   loading: boolean; photo: number; setPhoto: (v: number) => void; openAdd: () => void;
   setTab: (t: Tab) => void; openEdit: (e: Expense) => void; setRemoveTarget: (e: Expense) => void;
+  onLunaskan: (e: Expense) => void;
 }) {
   return (
     <>
@@ -397,7 +408,7 @@ function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidL
           </div>
           {unpaidList.length === 0
             ? <p className="py-8 text-center text-xs text-slate-400">Semua tagihan sudah lunas. ✅</p>
-            : <TransactionTable expenses={unpaidList.slice(0, 5)} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} compact />
+            : <TransactionTable expenses={unpaidList.slice(0, 5)} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} onLunaskan={onLunaskan} compact />
           }
         </div>
       </section>
@@ -407,7 +418,7 @@ function Dashboard({ expenses, total, totalLunas, totalBelum, utilities, unpaidL
           <div><h2 className="text-sm font-bold text-slate-900">Riwayat 5 Kas Keluar Terkini</h2><p className="mt-1 text-xs text-slate-500">Aktivitas arus kas terbaru di Harmoni Residence</p></div>
           <button onClick={() => setTab('transaksi')} className="text-xs font-bold text-emerald-700">Buku Transaksi Lengkap →</button>
         </div>
-        <TransactionTable expenses={expenses.slice(0, 5)} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} compact />
+        <TransactionTable expenses={expenses.slice(0, 5)} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} onLunaskan={onLunaskan} compact />
       </section>
     </>
   );
@@ -443,14 +454,14 @@ function MonthlyChart({ expenses }: { expenses: Expense[] }) {
 }
 
 /* ─── TRANSAKSI ─── */
-function Transactions({ expenses, allExpenses, query, setQuery, categoryFilter, setCategoryFilter, statusFilter, setStatusFilter, dateFilter, setDateFilter, periodMode, setPeriodMode, openAdd, openEdit, setRemoveTarget, exportCsv, loading }: {
+function Transactions({ expenses, allExpenses, query, setQuery, categoryFilter, setCategoryFilter, statusFilter, setStatusFilter, dateFilter, setDateFilter, periodMode, setPeriodMode, openAdd, openEdit, setRemoveTarget, exportCsv, loading, onLunaskan }: {
   expenses: Expense[]; allExpenses: Expense[]; query: string; setQuery: (v:string)=>void;
   categoryFilter: 'Semua Kategori'|Category; setCategoryFilter: (v:'Semua Kategori'|Category)=>void;
   statusFilter: 'Semua Status'|PaymentStatus; setStatusFilter: (v:'Semua Status'|PaymentStatus)=>void;
   dateFilter: string; setDateFilter: (v:string)=>void;
   periodMode: 'semua'|'bulan'|'tahun'; setPeriodMode: (v:'semua'|'bulan'|'tahun')=>void;
   openAdd:()=>void; openEdit:(e:Expense)=>void; setRemoveTarget:(e:Expense)=>void;
-  exportCsv:()=>void; loading:boolean;
+  exportCsv:()=>void; loading:boolean; onLunaskan:(e:Expense)=>void;
 }) {
   const uniqueYears  = [...new Set(allExpenses.map(e=>e.transaction_date.substring(0,4)))].sort((a,b)=>b.localeCompare(a));
   const uniqueMonths = [...new Set(allExpenses.map(e=>e.transaction_date.substring(0,7)))].sort((a,b)=>b.localeCompare(a));
@@ -496,7 +507,7 @@ function Transactions({ expenses, allExpenses, query, setQuery, categoryFilter, 
             <button onClick={()=>{setQuery('');setCategoryFilter('Semua Kategori');setStatusFilter('Semua Status');handleMode('semua');}} className="text-xs font-bold text-emerald-700 hover:underline">Reset Filter</button>
           </div>
         )}
-        <TransactionTable expenses={expenses} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} />
+        <TransactionTable expenses={expenses} loading={loading} openEdit={openEdit} setRemoveTarget={setRemoveTarget} onLunaskan={onLunaskan} />
       </div>
     </>
   );
@@ -638,8 +649,8 @@ function StatusBadge({ status }: { status?: PaymentStatus }) {
   return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${cfg.color}`}><Icon size={11}/>{s}</span>;
 }
 
-function TransactionTable({ expenses, loading, openEdit, setRemoveTarget, compact=false }: {
-  expenses:Expense[]; loading:boolean; openEdit:(e:Expense)=>void; setRemoveTarget:(e:Expense)=>void; compact?:boolean;
+function TransactionTable({ expenses, loading, openEdit, setRemoveTarget, onLunaskan, compact=false }: {
+  expenses:Expense[]; loading:boolean; openEdit:(e:Expense)=>void; setRemoveTarget:(e:Expense)=>void; onLunaskan?:(e:Expense)=>void; compact?:boolean;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -690,6 +701,15 @@ function TransactionTable({ expenses, loading, openEdit, setRemoveTarget, compac
                   <td className="px-4 py-3 text-center"><StatusBadge status={item.status}/></td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center gap-1">
+                      {onLunaskan && (item.status??'Lunas')!=='Lunas' && (
+                        <button
+                          onClick={()=>onLunaskan(item)}
+                          className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 transition"
+                          title="Tandai Lunas"
+                        >
+                          <Check size={11}/> Lunaskan
+                        </button>
+                      )}
                       <button onClick={()=>openEdit(item)} className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600" title="Edit"><Edit3 size={14}/></button>
                       <button onClick={()=>setRemoveTarget(item)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Hapus"><Trash2 size={14}/></button>
                       {compact && <button className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><ChevronDown size={14}/></button>}
