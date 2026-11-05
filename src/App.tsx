@@ -1,9 +1,10 @@
-﻿import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BarChart3, Building2, Check, CheckCircle2, ChevronDown, CircleDollarSign, Clock,
-  CreditCard, Download, Edit3, FileBarChart, FileText, Hotel, LayoutDashboard, MapPin,
-  Plus, Printer, Receipt, Search, Settings2, ShieldCheck, Tags, Trash2, Users, Wallet,
-  Wifi, X, Zap, Home,
+  BarChart3, BookOpen, Building2, Check, CheckCircle2, ChevronDown, ChevronRight,
+  CircleDollarSign, Clock, CreditCard, Download, Edit3, FileBarChart, FileText,
+  Hotel, LayoutDashboard, MapPin, Plus, Printer, Receipt, Search,
+  Settings2, ShieldCheck, Tags, Trash2, Users, Wallet,
+  Wifi, X, Zap, Home, BookMarked, Scale, ListOrdered, ArrowLeftRight,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -38,7 +39,15 @@ type FormState = {
   vendor: string;
 };
 
-type Tab = 'dashboard' | 'transaksi' | 'laporan' | 'kategori' | 'pengaturan';
+type Tab = 'dashboard' | 'transaksi' | 'laporan' | 'buku-besar' | 'kategori' | 'pengaturan';
+
+/* ─── ACCOUNTING TYPES ─── */
+type JenisAkun = 'Aset' | 'Kewajiban' | 'Ekuitas' | 'Pendapatan' | 'Beban';
+type Akun = { kode: string; nama: string; jenis: JenisAkun; sub_jenis: string; saldo_normal: 'Debit' | 'Kredit'; };
+type JurnalUmum = { id: string; nomor_jurnal: string; tanggal: string; keterangan: string; expense_id: string | null; dibuat_oleh: string; created_at: string; };
+type JurnalDetail = { id: string; jurnal_id: string; kode_akun: string; posisi: 'Debit' | 'Kredit'; nominal: number; keterangan: string; };
+type JurnalWithDetail = JurnalUmum & { details: JurnalDetail[]; };
+type SubTabBB = 'jurnal' | 'buku-besar' | 'neraca-saldo' | 'akun';
 
 /* ΓöÇΓöÇΓöÇ CONSTANTS ΓöÇΓöÇΓöÇ */
 const categories: Category[] = ['Listrik', 'Air', 'Internet/WiFi', 'Kebersihan', 'Perawatan & Perbaikan', 'Gaji Karyawan', 'Perlengkapan Kos', 'Biaya Lainnya'];
@@ -70,8 +79,30 @@ const methodConfig: Record<PaymentMethod, string> = {
   'Lainnya':                 'bg-slate-100 text-slate-500',
 };
 
+/* ─── ACCOUNTING MAPPINGS ─── */
+// Mapping kategori pengeluaran → kode akun beban
+const CATEGORY_TO_AKUN: Record<Category, string> = {
+  'Listrik':               '5-1100',
+  'Air':                   '5-1200',
+  'Internet/WiFi':         '5-1300',
+  'Kebersihan':            '5-2100',
+  'Perawatan & Perbaikan': '5-2200',
+  'Gaji Karyawan':         '5-2300',
+  'Perlengkapan Kos':      '5-2400',
+  'Biaya Lainnya':         '5-9100',
+};
+// Mapping metode pembayaran → kode akun kredit (kas/bank)
+const METHOD_TO_AKUN: Record<string, string> = {
+  'Kas Tunai (Petty Cash)': '1-1100',
+  'Tunai':                  '1-1100',
+  'Transfer Bank':          '1-1300',
+  'QRIS':                   '1-1300',
+  'Kartu Debit':            '1-1200',
+  'Debit':                  '1-1200',
+  'Lainnya':                '1-1100',
+};
+
 const propertyPhotos = [
-  { url: 'https://images.pexels.com/photos/4493552/pexels-photo-4493552.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Fasad', title: 'Bangunan Kos Modern Minimalis' },
   { url: 'https://images.pexels.com/photos/6487950/pexels-photo-6487950.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Kamar', title: 'Kamar Single Cozy & Terang' },
   { url: 'https://images.pexels.com/photos/33389378/pexels-photo-33389378.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Pantry', title: 'Dapur Komunal Bersih' },
   { url: 'https://images.pexels.com/photos/15143517/pexels-photo-15143517.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Parkir', title: 'Area Parkir Aman & Beratap' },
@@ -260,8 +291,9 @@ function App() {
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Dashboard',          icon: LayoutDashboard },
     { id: 'transaksi', label: 'Buku Transaksi',      icon: Receipt },
-    { id: 'laporan',   label: 'Laporan Akuntansi',   icon: FileBarChart },
-    { id: 'kategori',  label: 'Master Kategori',     icon: Tags },
+    { id: 'buku-besar',label: 'Buku Besar',          icon: BookOpen },
+    { id: 'laporan',   label: 'Laporan',             icon: FileBarChart },
+    { id: 'kategori',  label: 'Kategori',            icon: Tags },
     { id: 'pengaturan',label: 'Pengaturan',          icon: Settings2 },
   ];
 
@@ -302,6 +334,7 @@ function App() {
         <main className="mx-auto max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 animate-fade-in">
         {tab === 'dashboard'  && <Dashboard expenses={expenses} total={total} totalLunas={totalLunas} totalBelum={totalBelum} utilities={utilities} unpaidList={unpaidList} ratio={ratio} categoryTotals={categoryTotals} loading={loading} photo={photo} setPhoto={setPhoto} openAdd={openAdd} setTab={setTab} openEdit={openEdit} setRemoveTarget={setRemoveTarget} onLunaskan={lunaskan} />}
         {tab === 'transaksi'  && <Transactions expenses={filtered} allExpenses={expenses} query={query} setQuery={setQuery} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} dateFilter={dateFilter} setDateFilter={setDateFilter} periodMode={periodMode} setPeriodMode={setPeriodMode} openAdd={openAdd} openEdit={openEdit} setRemoveTarget={setRemoveTarget} exportCsv={exportCsv} loading={loading} onLunaskan={lunaskan} />}
+        {tab === 'buku-besar' && <BukuBesar expenses={expenses} />}
         {tab === 'laporan'    && <Reports expenses={expenses} categoryTotals={categoryTotals} exportCsv={exportCsv} />}
         {tab === 'kategori'   && <Categories categoryTotals={categoryTotals} />}
         {tab === 'pengaturan' && <SettingsPage profile={profile} onSave={saveProfile} />}
@@ -872,3 +905,572 @@ function ConfirmDelete({ item, onClose, onConfirm }: { item:Expense; onClose:()=
 }
 
 export default App;
+
+/* ════════════════════════════════════════════════════════════════
+   BUKU BESAR — komponen utama dengan 4 sub-tab
+════════════════════════════════════════════════════════════════ */
+function BukuBesar({ expenses }: { expenses: Expense[] }) {
+  const [subTab, setSubTab] = useState<SubTabBB>('jurnal');
+  const [akunList, setAkunList] = useState<Akun[]>([]);
+  const [jurnal, setJurnal] = useState<JurnalWithDetail[]>([]);
+  const [loadingBB, setLoadingBB] = useState(true);
+
+  // Generate jurnal otomatis dari data expenses
+  const generatedJurnal = useMemo<JurnalWithDetail[]>(() => {
+    return expenses
+      .filter(e => (e.status ?? 'Lunas') === 'Lunas')
+      .map((e, idx) => {
+        const kodeBeban = CATEGORY_TO_AKUN[e.category] ?? '5-9100';
+        const kodeKas   = METHOD_TO_AKUN[e.payment_method ?? 'Tunai'] ?? '1-1100';
+        const nomor     = `JU-${e.transaction_date.replace(/-/g,'').substring(2)}-${String(idx+1).padStart(3,'0')}`;
+        return {
+          id: `gen-${e.id}`,
+          nomor_jurnal: nomor,
+          tanggal: e.transaction_date,
+          keterangan: e.description,
+          expense_id: e.id,
+          dibuat_oleh: 'Sistem (Auto)',
+          created_at: e.created_at,
+          details: [
+            { id: `d1-${e.id}`, jurnal_id: `gen-${e.id}`, kode_akun: kodeBeban, posisi: 'Debit',  nominal: Number(e.amount), keterangan: e.category },
+            { id: `d2-${e.id}`, jurnal_id: `gen-${e.id}`, kode_akun: kodeKas,   posisi: 'Kredit', nominal: Number(e.amount), keterangan: e.payment_method ?? 'Tunai' },
+          ],
+        } as JurnalWithDetail;
+      })
+      .sort((a,b) => b.tanggal.localeCompare(a.tanggal));
+  }, [expenses]);
+
+  // Load akun dari Supabase
+  useEffect(() => {
+    void (async () => {
+      setLoadingBB(true);
+      const { data } = await supabase.from('akun').select('*').order('kode');
+      if (data) setAkunList(data as Akun[]);
+      // Load jurnal manual jika ada
+      const { data: jd } = await supabase
+        .from('jurnal_umum')
+        .select('*, jurnal_detail(*)')
+        .order('tanggal', { ascending: false });
+      if (jd) setJurnal(jd.map((j: JurnalUmum & { jurnal_detail: JurnalDetail[] }) => ({ ...j, details: j.jurnal_detail })) as JurnalWithDetail[]);
+      setLoadingBB(false);
+    })();
+  }, []);
+
+  // Gabungkan jurnal otomatis + manual (manual lebih prioritas, skip jika sudah ada expense_id)
+  const manualExpenseIds = new Set(jurnal.filter(j => j.expense_id).map(j => j.expense_id));
+  const allJurnal = [
+    ...jurnal,
+    ...generatedJurnal.filter(j => j.expense_id && !manualExpenseIds.has(j.expense_id)),
+  ].sort((a,b) => b.tanggal.localeCompare(a.tanggal));
+
+  const subTabs: { id: SubTabBB; label: string; icon: typeof BookOpen }[] = [
+    { id: 'jurnal',       label: 'Jurnal Umum',   icon: ListOrdered },
+    { id: 'buku-besar',   label: 'Buku Besar',    icon: BookMarked },
+    { id: 'neraca-saldo', label: 'Neraca Saldo',  icon: Scale },
+    { id: 'akun',         label: 'Daftar Akun',   icon: ArrowLeftRight },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* Page header */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Akuntansi</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Buku Besar</h2>
+          <p className="mt-1 text-sm text-slate-500">Pencatatan double-entry & laporan akuntansi Harmoni Residence</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl border border-slate-100 bg-white p-1 shadow-sm">
+          {subTabs.map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setSubTab(id)}
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${subTab === id ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
+              <Icon size={13} />{label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sub-tab content */}
+      {subTab === 'jurnal'       && <JurnalUmumView  jurnal={allJurnal} akunList={akunList} loading={loadingBB} expenses={expenses} />}
+      {subTab === 'buku-besar'   && <BukuBesarView   jurnal={allJurnal} akunList={akunList} loading={loadingBB} />}
+      {subTab === 'neraca-saldo' && <NeracaSaldoView  jurnal={allJurnal} akunList={akunList} loading={loadingBB} />}
+      {subTab === 'akun'         && <DaftarAkunView   akunList={akunList} loading={loadingBB} />}
+    </div>
+  );
+}
+
+/* ─── JURNAL UMUM VIEW ─── */
+function JurnalUmumView({ jurnal, akunList, loading, expenses }: {
+  jurnal: JurnalWithDetail[]; akunList: Akun[]; loading: boolean; expenses: Expense[];
+}) {
+  const [search, setSearch] = useState('');
+  const [bulan, setBulan] = useState('semua');
+  const mN: Record<string,string> = {'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'Mei','06':'Jun','07':'Jul','08':'Agt','09':'Sep','10':'Okt','11':'Nov','12':'Des'};
+
+  const uniqueMonths = [...new Set(jurnal.map(j => j.tanggal.substring(0,7)))].sort((a,b) => b.localeCompare(a));
+  const filtered = jurnal.filter(j => {
+    const ms = `${j.nomor_jurnal} ${j.keterangan}`.toLowerCase().includes(search.toLowerCase());
+    const mb = bulan === 'semua' || j.tanggal.startsWith(bulan);
+    return ms && mb;
+  });
+
+  const totalDebit  = filtered.reduce((s,j) => s + j.details.filter(d=>d.posisi==='Debit').reduce((a,d) => a+Number(d.nominal),0), 0);
+  const totalKredit = filtered.reduce((s,j) => s + j.details.filter(d=>d.posisi==='Kredit').reduce((a,d) => a+Number(d.nominal),0), 0);
+  const getAkun = (kode: string) => akunList.find(a => a.kode === kode);
+
+  const exportJurnal = () => {
+    const rows = [['Tgl','No. Jurnal','Keterangan','Kode Akun','Nama Akun','Debit','Kredit']];
+    filtered.forEach(j => {
+      j.details.forEach((d,i) => {
+        const akun = getAkun(d.kode_akun);
+        rows.push([
+          i===0 ? j.tanggal : '',
+          i===0 ? j.nomor_jurnal : '',
+          i===0 ? j.keterangan : '',
+          d.kode_akun,
+          akun?.nama ?? d.kode_akun,
+          d.posisi==='Debit'  ? String(d.nominal) : '',
+          d.posisi==='Kredit' ? String(d.nominal) : '',
+        ]);
+      });
+    });
+    const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='jurnal-umum.csv'; a.click();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Entri Jurnal</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{filtered.length}</p>
+          <p className="mt-1 text-xs text-emerald-600">{jurnal.length} jurnal tersedia</p>
+        </div>
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Debit</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{rupiah(totalDebit)}</p>
+          <p className="mt-1 text-xs text-blue-600">Sisi kiri neraca</p>
+        </div>
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Kredit</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{rupiah(totalKredit)}</p>
+          <p className={`mt-1 text-xs ${totalDebit===totalKredit?'text-emerald-600':'text-rose-600'}`}>
+            {totalDebit===totalKredit ? '✓ Seimbang (Balance)' : '⚠ Tidak seimbang'}
+          </p>
+        </div>
+      </div>
+
+      {/* Filter + tabel */}
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-slate-50/50 p-4">
+          <label className="relative flex-1 min-w-[200px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nomor jurnal atau keterangan..." className="form-input pl-9 py-2 text-xs" />
+          </label>
+          <select value={bulan} onChange={e=>setBulan(e.target.value)} className="form-input w-auto py-2 text-xs">
+            <option value="semua">Semua Bulan</option>
+            {uniqueMonths.map(ym=>{const[y,m]=ym.split('-');return<option key={ym} value={ym}>{mN[m]} {y}</option>;})}
+          </select>
+          <button onClick={exportJurnal} className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            <Download size={13}/> Ekspor
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="py-16 text-center text-sm text-slate-400">Memuat jurnal...</p>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <ListOrdered size={40} className="text-slate-200" />
+            <p className="text-sm font-medium text-slate-400">Belum ada entri jurnal.</p>
+            <p className="text-xs text-slate-400">Jurnal otomatis dibuat dari transaksi yang berstatus Lunas.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-xs">
+              <thead className="border-b border-slate-100 bg-slate-50/70">
+                <tr>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Tanggal</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">No. Jurnal</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Keterangan & Akun</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400">Debit (Rp)</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400">Kredit (Rp)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(j => (
+                  <React.Fragment key={j.id}>
+                    {j.details.map((d, i) => {
+                      const akun = getAkun(d.kode_akun);
+                      return (
+                        <tr key={d.id} className={`border-b border-slate-50 hover:bg-slate-50/60 ${i===0?'':'bg-slate-50/20'}`}>
+                          {i===0 && (
+                            <td className="px-4 py-2.5 align-top" rowSpan={j.details.length}>
+                              <p className="font-medium text-slate-700">{dateText(j.tanggal)}</p>
+                              <p className="mt-0.5 text-[10px] text-slate-400">{j.dibuat_oleh}</p>
+                            </td>
+                          )}
+                          {i===0 && (
+                            <td className="px-4 py-2.5 align-top" rowSpan={j.details.length}>
+                              <p className="font-mono text-xs font-semibold text-slate-700">{j.nomor_jurnal}</p>
+                            </td>
+                          )}
+                          {i===0 && (
+                            <td className="px-4 py-2.5" rowSpan={j.details.length}>
+                              <p className="font-medium text-slate-800 mb-1">{j.keterangan}</p>
+                              {j.details.map((dd,ii) => {
+                                const aa = getAkun(dd.kode_akun);
+                                return (
+                                  <div key={dd.id} className={`flex items-center gap-1.5 text-[10px] ${ii>0?'mt-0.5':''} ${dd.posisi==='Kredit'?'ml-4':''}`}>
+                                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${dd.posisi==='Debit'?'bg-blue-400':'bg-orange-400'}`}/>
+                                    <span className="font-mono text-slate-500">{dd.kode_akun}</span>
+                                    <span className="text-slate-600">{aa?.nama ?? dd.kode_akun}</span>
+                                    <span className={`ml-auto text-[10px] font-semibold ${dd.posisi==='Debit'?'text-blue-600':'text-orange-600'}`}>{dd.posisi}</span>
+                                  </div>
+                                );
+                              })}
+                            </td>
+                          )}
+                          <td className="px-4 py-2.5 text-right font-semibold text-blue-700">
+                            {d.posisi==='Debit' ? rupiah(Number(d.nominal)) : ''}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-orange-600">
+                            {d.posisi==='Kredit' ? rupiah(Number(d.nominal)) : ''}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="border-b-2 border-slate-200"><td colSpan={5} /></tr>
+                  </React.Fragment>
+                ))}
+              </tbody>
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                <tr>
+                  <td colSpan={3} className="px-4 py-3 text-xs font-bold text-slate-600">TOTAL ({filtered.length} jurnal)</td>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-blue-700">{rupiah(totalDebit)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-orange-600">{rupiah(totalKredit)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── BUKU BESAR VIEW ─── */
+function BukuBesarView({ jurnal, akunList, loading }: { jurnal: JurnalWithDetail[]; akunList: Akun[]; loading: boolean; }) {
+  const [selectedAkun, setSelectedAkun] = useState<string>('all');
+
+  // Hitung saldo per akun dari semua entri jurnal
+  const saldoPerAkun = useMemo(() => {
+    const map: Record<string, { debit: number; kredit: number; entries: Array<{ tanggal:string; keterangan:string; nomor:string; debit:number; kredit:number; }> }> = {};
+    jurnal.forEach(j => {
+      j.details.forEach(d => {
+        if (!map[d.kode_akun]) map[d.kode_akun] = { debit:0, kredit:0, entries:[] };
+        if (d.posisi==='Debit')  map[d.kode_akun].debit  += Number(d.nominal);
+        else                     map[d.kode_akun].kredit += Number(d.nominal);
+        map[d.kode_akun].entries.push({
+          tanggal: j.tanggal, keterangan: j.keterangan, nomor: j.nomor_jurnal,
+          debit:  d.posisi==='Debit'  ? Number(d.nominal) : 0,
+          kredit: d.posisi==='Kredit' ? Number(d.nominal) : 0,
+        });
+      });
+    });
+    return map;
+  }, [jurnal]);
+
+  const akunDenganData = akunList.filter(a => saldoPerAkun[a.kode]);
+  const displayAkun = selectedAkun === 'all' ? akunDenganData : akunList.filter(a => a.kode === selectedAkun);
+
+  const jenisColor: Record<JenisAkun,string> = {
+    Aset:'bg-blue-50 text-blue-700 border-blue-200',
+    Kewajiban:'bg-orange-50 text-orange-700 border-orange-200',
+    Ekuitas:'bg-purple-50 text-purple-700 border-purple-200',
+    Pendapatan:'bg-emerald-50 text-emerald-700 border-emerald-200',
+    Beban:'bg-rose-50 text-rose-700 border-rose-200',
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Filter akun */}
+      <div className="flex flex-wrap items-center gap-3">
+        <select value={selectedAkun} onChange={e=>setSelectedAkun(e.target.value)} className="form-input w-auto">
+          <option value="all">Semua Akun ({akunDenganData.length} akun aktif)</option>
+          {(['Aset','Kewajiban','Ekuitas','Pendapatan','Beban'] as JenisAkun[]).map(jenis => (
+            <optgroup key={jenis} label={`─── ${jenis} ───`}>
+              {akunList.filter(a=>a.jenis===jenis && saldoPerAkun[a.kode]).map(a=>(
+                <option key={a.kode} value={a.kode}>{a.kode} — {a.nama}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <span className="text-xs text-slate-500">{loading ? 'Memuat...' : `${akunDenganData.length} akun memiliki transaksi`}</span>
+      </div>
+
+      {loading ? <p className="py-16 text-center text-sm text-slate-400">Memuat buku besar...</p> :
+      displayAkun.length === 0 ? (
+        <div className="rounded-2xl border border-slate-100 bg-white p-16 text-center shadow-sm">
+          <BookMarked size={40} className="mx-auto mb-3 text-slate-200" />
+          <p className="text-sm text-slate-400">Belum ada transaksi pada akun ini.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {displayAkun.map(akun => {
+            const data = saldoPerAkun[akun.kode];
+            if (!data) return null;
+            const saldo = akun.saldo_normal === 'Debit' ? data.debit - data.kredit : data.kredit - data.debit;
+            let runSaldo = 0;
+            return (
+              <div key={akun.kode} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                {/* Akun header */}
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-bold text-slate-700">{akun.kode}</span>
+                    <span className="text-sm font-semibold text-slate-900">{akun.nama}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${jenisColor[akun.jenis]}`}>{akun.jenis}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-slate-500">Saldo Normal: <b className="text-slate-700">{akun.saldo_normal}</b></span>
+                    <span className={`font-bold text-sm ${saldo >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{rupiah(Math.abs(saldo))}</span>
+                  </div>
+                </div>
+                {/* T-Account tabel */}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px] text-xs">
+                    <thead className="border-b border-slate-100">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Tanggal</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Keterangan</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Ref</th>
+                        <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-widest text-blue-400">Debit</th>
+                        <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-widest text-orange-400">Kredit</th>
+                        <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      <tr className="bg-emerald-50/40">
+                        <td className="px-4 py-2 text-xs text-slate-500" colSpan={3}><b>Saldo Awal</b></td>
+                        <td className="px-4 py-2 text-right text-xs text-slate-400">—</td>
+                        <td className="px-4 py-2 text-right text-xs text-slate-400">—</td>
+                        <td className="px-4 py-2 text-right text-xs font-semibold text-slate-600">Rp 0</td>
+                      </tr>
+                      {[...data.entries].sort((a,b)=>a.tanggal.localeCompare(b.tanggal)).map((e,i) => {
+                        if (akun.saldo_normal==='Debit') runSaldo += e.debit - e.kredit;
+                        else runSaldo += e.kredit - e.debit;
+                        return (
+                          <tr key={i} className="hover:bg-slate-50/60">
+                            <td className="px-4 py-2.5 text-slate-600">{dateText(e.tanggal)}</td>
+                            <td className="px-4 py-2.5 text-slate-700 max-w-[200px] truncate">{e.keterangan}</td>
+                            <td className="px-4 py-2.5 font-mono text-slate-500">{e.nomor}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-blue-600">{e.debit>0?rupiah(e.debit):''}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-orange-500">{e.kredit>0?rupiah(e.kredit):''}</td>
+                            <td className={`px-4 py-2.5 text-right font-bold ${runSaldo>=0?'text-slate-800':'text-rose-600'}`}>{rupiah(Math.abs(runSaldo))}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                      <tr>
+                        <td colSpan={3} className="px-4 py-3 text-xs font-bold text-slate-600">TOTAL</td>
+                        <td className="px-4 py-3 text-right text-sm font-bold text-blue-700">{rupiah(data.debit)}</td>
+                        <td className="px-4 py-3 text-right text-sm font-bold text-orange-600">{rupiah(data.kredit)}</td>
+                        <td className={`px-4 py-3 text-right text-sm font-bold ${saldo>=0?'text-emerald-700':'text-rose-600'}`}>{rupiah(Math.abs(saldo))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── NERACA SALDO VIEW ─── */
+function NeracaSaldoView({ jurnal, akunList, loading }: { jurnal: JurnalWithDetail[]; akunList: Akun[]; loading: boolean; }) {
+  // Hitung saldo per akun
+  const saldoMap = useMemo(() => {
+    const m: Record<string,{debit:number;kredit:number}> = {};
+    jurnal.forEach(j => j.details.forEach(d => {
+      if (!m[d.kode_akun]) m[d.kode_akun] = {debit:0,kredit:0};
+      if (d.posisi==='Debit') m[d.kode_akun].debit  += Number(d.nominal);
+      else                    m[d.kode_akun].kredit += Number(d.nominal);
+    }));
+    return m;
+  }, [jurnal]);
+
+  const rows = akunList.filter(a => saldoMap[a.kode]).map(akun => {
+    const s = saldoMap[akun.kode];
+    const saldo = akun.saldo_normal==='Debit' ? s.debit - s.kredit : s.kredit - s.debit;
+    return {
+      ...akun,
+      totalDebit:  s.debit,
+      totalKredit: s.kredit,
+      saldoDebit:  akun.saldo_normal==='Debit'  ? Math.max(saldo,0)  : Math.max(-saldo,0),
+      saldoKredit: akun.saldo_normal==='Kredit' ? Math.max(saldo,0)  : Math.max(-saldo,0),
+    };
+  });
+
+  const totalSaldoDebit  = rows.reduce((s,r) => s+r.saldoDebit, 0);
+  const totalSaldoKredit = rows.reduce((s,r) => s+r.saldoKredit, 0);
+  const isBalance = totalSaldoDebit === totalSaldoKredit;
+
+  const jenisOrder: JenisAkun[] = ['Aset','Kewajiban','Ekuitas','Pendapatan','Beban'];
+
+  const exportNeraca = () => {
+    const csv = [['Kode','Nama Akun','Jenis','Total Debit','Total Kredit','Saldo Debit','Saldo Kredit'],
+      ...rows.map(r=>[r.kode,r.nama,r.jenis,String(r.totalDebit),String(r.totalKredit),String(r.saldoDebit),String(r.saldoKredit)])
+    ].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='neraca-saldo.csv'; a.click();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Status balance */}
+      <div className={`flex items-center gap-3 rounded-2xl border p-4 ${isBalance?'border-emerald-200 bg-emerald-50':'border-rose-200 bg-rose-50'}`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isBalance?'bg-emerald-500':'bg-rose-500'} text-white`}>
+          <Scale size={18}/>
+        </div>
+        <div>
+          <p className={`text-sm font-bold ${isBalance?'text-emerald-800':'text-rose-800'}`}>
+            {isBalance ? '✓ Neraca Seimbang (Balance)' : '⚠ Neraca Tidak Seimbang'}
+          </p>
+          <p className={`text-xs ${isBalance?'text-emerald-600':'text-rose-600'}`}>
+            Total Debit {rupiah(totalSaldoDebit)} — Total Kredit {rupiah(totalSaldoKredit)}
+            {!isBalance && ` — Selisih: ${rupiah(Math.abs(totalSaldoDebit-totalSaldoKredit))}`}
+          </p>
+        </div>
+        <button onClick={exportNeraca} className="ml-auto flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm">
+          <Download size={13}/> Ekspor
+        </button>
+      </div>
+
+      {loading ? <p className="py-16 text-center text-sm text-slate-400">Memuat neraca saldo...</p> : (
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/70">
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Kode</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nama Akun</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-blue-400">Debit (Rp)</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-orange-400">Kredit (Rp)</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-blue-600">Saldo Debit</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-orange-600">Saldo Kredit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jenisOrder.map(jenis => {
+                  const rowsByJenis = rows.filter(r=>r.jenis===jenis);
+                  if (!rowsByJenis.length) return null;
+                  const subTotalD = rowsByJenis.reduce((s,r)=>s+r.saldoDebit,0);
+                  const subTotalK = rowsByJenis.reduce((s,r)=>s+r.saldoKredit,0);
+                  return (
+                    <React.Fragment key={jenis}>
+                      <tr className="bg-slate-100/60">
+                        <td colSpan={6} className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">{jenis}</td>
+                      </tr>
+                      {rowsByJenis.map(row => (
+                        <tr key={row.kode} className="border-b border-slate-50 hover:bg-slate-50/60">
+                          <td className="px-4 py-2.5 font-mono text-slate-600">{row.kode}</td>
+                          <td className="px-4 py-2.5 font-medium text-slate-800">{row.nama}</td>
+                          <td className="px-4 py-2.5 text-right text-blue-600">{rupiah(row.totalDebit)}</td>
+                          <td className="px-4 py-2.5 text-right text-orange-500">{rupiah(row.totalKredit)}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-blue-700">{row.saldoDebit>0?rupiah(row.saldoDebit):''}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-orange-600">{row.saldoKredit>0?rupiah(row.saldoKredit):''}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-b-2 border-slate-200 bg-slate-50">
+                        <td colSpan={4} className="px-4 py-2 text-[10px] font-bold text-slate-500">Sub-total {jenis}</td>
+                        <td className="px-4 py-2 text-right text-xs font-bold text-blue-700">{subTotalD>0?rupiah(subTotalD):''}</td>
+                        <td className="px-4 py-2 text-right text-xs font-bold text-orange-600">{subTotalK>0?rupiah(subTotalK):''}</td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t-2 border-slate-900/20 bg-slate-100">
+                <tr>
+                  <td colSpan={4} className="px-4 py-3.5 text-sm font-bold text-slate-700">GRAND TOTAL</td>
+                  <td className={`px-4 py-3.5 text-right text-sm font-bold ${isBalance?'text-blue-700':'text-rose-600'}`}>{rupiah(totalSaldoDebit)}</td>
+                  <td className={`px-4 py-3.5 text-right text-sm font-bold ${isBalance?'text-orange-600':'text-rose-600'}`}>{rupiah(totalSaldoKredit)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── DAFTAR AKUN VIEW ─── */
+function DaftarAkunView({ akunList, loading }: { akunList: Akun[]; loading: boolean; }) {
+  const jenisOrder: JenisAkun[] = ['Aset','Kewajiban','Ekuitas','Pendapatan','Beban'];
+  const jenisColor: Record<JenisAkun,string> = {
+    Aset:'bg-blue-50 text-blue-700 border-blue-200',
+    Kewajiban:'bg-orange-50 text-orange-700 border-orange-200',
+    Ekuitas:'bg-purple-50 text-purple-700 border-purple-200',
+    Pendapatan:'bg-emerald-50 text-emerald-700 border-emerald-200',
+    Beban:'bg-rose-50 text-rose-700 border-rose-200',
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-5">
+        {jenisOrder.map(j => (
+          <div key={j} className={`rounded-2xl border p-4 ${jenisColor[j].replace('text-','border-').replace('bg-','border-')} bg-white shadow-sm`}>
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${jenisColor[j].split(' ')[1]}`}>{j}</p>
+            <p className="mt-1.5 text-xl font-bold text-slate-900">{akunList.filter(a=>a.jenis===j).length}</p>
+            <p className="text-xs text-slate-400">Akun</p>
+          </div>
+        ))}
+      </div>
+
+      {loading ? <p className="py-16 text-center text-sm text-slate-400">Memuat daftar akun...</p> : (
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] text-xs">
+              <thead className="border-b border-slate-100 bg-slate-50/70">
+                <tr>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Kode</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nama Akun</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Jenis</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Sub Jenis</th>
+                  <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Saldo Normal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jenisOrder.map(jenis => {
+                  const byJenis = akunList.filter(a=>a.jenis===jenis);
+                  if (!byJenis.length) return null;
+                  return (
+                    <React.Fragment key={jenis}>
+                      <tr className="bg-slate-100/60">
+                        <td colSpan={5} className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">{jenis}</td>
+                      </tr>
+                      {byJenis.map(akun => (
+                        <tr key={akun.kode} className="border-b border-slate-50 hover:bg-slate-50/60">
+                          <td className="px-4 py-3 font-mono font-semibold text-slate-700">{akun.kode}</td>
+                          <td className="px-4 py-3 font-medium text-slate-800">{akun.nama}</td>
+                          <td className="px-4 py-3"><span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${jenisColor[akun.jenis]}`}>{akun.jenis}</span></td>
+                          <td className="px-4 py-3 text-slate-500">{akun.sub_jenis}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${akun.saldo_normal==='Debit'?'bg-blue-50 text-blue-600':'bg-orange-50 text-orange-600'}`}>{akun.saldo_normal}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
