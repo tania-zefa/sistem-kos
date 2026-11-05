@@ -968,18 +968,55 @@ function BukuBesar({ expenses }: { expenses: Expense[] }) {
       .sort((a,b) => b.tanggal.localeCompare(a.tanggal));
   }, [expenses]);
 
-  // Load akun dari Supabase
+  // Load akun dari Supabase, fallback ke data statis jika tabel belum ada
   useEffect(() => {
     void (async () => {
       setLoadingBB(true);
+
+      // Bangun daftar akun statis dari AKUN_NAMA sebagai default
+      const staticAkun: Akun[] = [
+        // Aset
+        { kode:'1-1100', nama:'Kas Tunai (Petty Cash)',      jenis:'Aset',       sub_jenis:'Aset Lancar',          saldo_normal:'Debit'  },
+        { kode:'1-1200', nama:'Kas Bank — BCA / Debit',      jenis:'Aset',       sub_jenis:'Aset Lancar',          saldo_normal:'Debit'  },
+        { kode:'1-1300', nama:'Kas Bank — Transfer / QRIS',  jenis:'Aset',       sub_jenis:'Aset Lancar',          saldo_normal:'Debit'  },
+        { kode:'1-1400', nama:'Piutang Sewa',                jenis:'Aset',       sub_jenis:'Aset Lancar',          saldo_normal:'Debit'  },
+        { kode:'1-5100', nama:'Inventaris & Perlengkapan',   jenis:'Aset',       sub_jenis:'Aset Tetap',           saldo_normal:'Debit'  },
+        { kode:'1-5200', nama:'Bangunan & Renovasi',         jenis:'Aset',       sub_jenis:'Aset Tetap',           saldo_normal:'Debit'  },
+        // Kewajiban
+        { kode:'2-1100', nama:'Utang Usaha',                 jenis:'Kewajiban',  sub_jenis:'Kewajiban Lancar',     saldo_normal:'Kredit' },
+        { kode:'2-1200', nama:'Utang Gaji',                  jenis:'Kewajiban',  sub_jenis:'Kewajiban Lancar',     saldo_normal:'Kredit' },
+        { kode:'2-1300', nama:'Utang Listrik & Air',         jenis:'Kewajiban',  sub_jenis:'Kewajiban Lancar',     saldo_normal:'Kredit' },
+        // Ekuitas
+        { kode:'3-1100', nama:'Modal Pemilik',               jenis:'Ekuitas',    sub_jenis:'Modal',                saldo_normal:'Kredit' },
+        { kode:'3-1200', nama:'Laba Ditahan',                jenis:'Ekuitas',    sub_jenis:'Modal',                saldo_normal:'Kredit' },
+        // Pendapatan
+        { kode:'4-1100', nama:'Pendapatan Sewa Kamar',       jenis:'Pendapatan', sub_jenis:'Pendapatan Usaha',     saldo_normal:'Kredit' },
+        { kode:'4-1200', nama:'Pendapatan Lainnya',          jenis:'Pendapatan', sub_jenis:'Pendapatan Lain',      saldo_normal:'Kredit' },
+        // Beban
+        { kode:'5-1100', nama:'Beban Listrik',               jenis:'Beban',      sub_jenis:'Beban Utilitas',       saldo_normal:'Debit'  },
+        { kode:'5-1200', nama:'Beban Air',                   jenis:'Beban',      sub_jenis:'Beban Utilitas',       saldo_normal:'Debit'  },
+        { kode:'5-1300', nama:'Beban Internet & WiFi',       jenis:'Beban',      sub_jenis:'Beban Utilitas',       saldo_normal:'Debit'  },
+        { kode:'5-2100', nama:'Beban Kebersihan',            jenis:'Beban',      sub_jenis:'Beban Operasional',    saldo_normal:'Debit'  },
+        { kode:'5-2200', nama:'Beban Perawatan & Perbaikan', jenis:'Beban',      sub_jenis:'Beban Operasional',    saldo_normal:'Debit'  },
+        { kode:'5-2300', nama:'Beban Gaji Karyawan',         jenis:'Beban',      sub_jenis:'Beban Operasional',    saldo_normal:'Debit'  },
+        { kode:'5-2400', nama:'Beban Perlengkapan Kos',      jenis:'Beban',      sub_jenis:'Beban Operasional',    saldo_normal:'Debit'  },
+        { kode:'5-9100', nama:'Beban Lain-lain',             jenis:'Beban',      sub_jenis:'Beban Lainnya',        saldo_normal:'Debit'  },
+      ];
+
+      // Set data statis dulu agar UI langsung tampil
+      setAkunList(staticAkun);
+
+      // Coba ambil dari Supabase (override jika berhasil)
       const { data } = await supabase.from('akun').select('*').order('kode');
-      if (data) setAkunList(data as Akun[]);
+      if (data && data.length > 0) setAkunList(data as Akun[]);
+
       // Load jurnal manual jika ada
       const { data: jd } = await supabase
         .from('jurnal_umum')
         .select('*, jurnal_detail(*)')
         .order('tanggal', { ascending: false });
       if (jd) setJurnal(jd.map((j: JurnalUmum & { jurnal_detail: JurnalDetail[] }) => ({ ...j, details: j.jurnal_detail })) as JurnalWithDetail[]);
+
       setLoadingBB(false);
     })();
   }, []);
