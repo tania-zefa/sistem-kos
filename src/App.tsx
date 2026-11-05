@@ -101,6 +101,34 @@ const METHOD_TO_AKUN: Record<string, string> = {
   'Debit':                  '1-1200',
   'Lainnya':                '1-1100',
 };
+// Master nama akun — fallback jika Supabase belum terload
+const AKUN_NAMA: Record<string, string> = {
+  '1-1100': 'Kas Tunai (Petty Cash)',
+  '1-1200': 'Kas Bank — BCA / Debit',
+  '1-1300': 'Kas Bank — Transfer / QRIS',
+  '1-1400': 'Piutang Sewa',
+  '1-5100': 'Inventaris & Perlengkapan',
+  '1-5200': 'Bangunan & Renovasi',
+  '2-1100': 'Utang Usaha',
+  '2-1200': 'Utang Gaji',
+  '2-1300': 'Utang Listrik & Air',
+  '3-1100': 'Modal Pemilik',
+  '3-1200': 'Laba Ditahan',
+  '4-1100': 'Pendapatan Sewa Kamar',
+  '4-1200': 'Pendapatan Lainnya',
+  '5-1100': 'Beban Listrik',
+  '5-1200': 'Beban Air',
+  '5-1300': 'Beban Internet & WiFi',
+  '5-2100': 'Beban Kebersihan',
+  '5-2200': 'Beban Perawatan & Perbaikan',
+  '5-2300': 'Beban Gaji Karyawan',
+  '5-2400': 'Beban Perlengkapan Kos',
+  '5-9100': 'Beban Lain-lain',
+};
+// Helper: ambil nama akun dari Supabase atau fallback ke AKUN_NAMA
+function namaAkun(kode: string, akunList: Akun[]): string {
+  return akunList.find(a => a.kode === kode)?.nama ?? AKUN_NAMA[kode] ?? kode;
+}
 
 const propertyPhotos = [
   { url: 'https://images.pexels.com/photos/6487950/pexels-photo-6487950.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', label: 'Kamar', title: 'Kamar Single Cozy & Terang' },
@@ -932,8 +960,8 @@ function BukuBesar({ expenses }: { expenses: Expense[] }) {
           dibuat_oleh: 'Sistem (Auto)',
           created_at: e.created_at,
           details: [
-            { id: `d1-${e.id}`, jurnal_id: `gen-${e.id}`, kode_akun: kodeBeban, posisi: 'Debit',  nominal: Number(e.amount), keterangan: e.category },
-            { id: `d2-${e.id}`, jurnal_id: `gen-${e.id}`, kode_akun: kodeKas,   posisi: 'Kredit', nominal: Number(e.amount), keterangan: e.payment_method ?? 'Tunai' },
+            { id: `d1-${e.id}`, jurnal_id: `gen-${e.id}`, kode_akun: kodeBeban, posisi: 'Debit',  nominal: Number(e.amount), keterangan: AKUN_NAMA[kodeBeban] ?? e.category },
+            { id: `d2-${e.id}`, jurnal_id: `gen-${e.id}`, kode_akun: kodeKas,   posisi: 'Kredit', nominal: Number(e.amount), keterangan: AKUN_NAMA[kodeKas]   ?? (e.payment_method ?? 'Tunai') },
           ],
         } as JurnalWithDetail;
       })
@@ -1015,19 +1043,17 @@ function JurnalUmumView({ jurnal, akunList, loading, expenses }: {
 
   const totalDebit  = filtered.reduce((s,j) => s + j.details.filter(d=>d.posisi==='Debit').reduce((a,d) => a+Number(d.nominal),0), 0);
   const totalKredit = filtered.reduce((s,j) => s + j.details.filter(d=>d.posisi==='Kredit').reduce((a,d) => a+Number(d.nominal),0), 0);
-  const getAkun = (kode: string) => akunList.find(a => a.kode === kode);
 
   const exportJurnal = () => {
     const rows = [['Tgl','No. Jurnal','Keterangan','Kode Akun','Nama Akun','Debit','Kredit']];
     filtered.forEach(j => {
       j.details.forEach((d,i) => {
-        const akun = getAkun(d.kode_akun);
         rows.push([
           i===0 ? j.tanggal : '',
           i===0 ? j.nomor_jurnal : '',
           i===0 ? j.keterangan : '',
           d.kode_akun,
-          akun?.nama ?? d.kode_akun,
+          namaAkun(d.kode_akun, akunList),
           d.posisi==='Debit'  ? String(d.nominal) : '',
           d.posisi==='Kredit' ? String(d.nominal) : '',
         ]);
@@ -1100,7 +1126,6 @@ function JurnalUmumView({ jurnal, akunList, loading, expenses }: {
                 {filtered.map(j => (
                   <React.Fragment key={j.id}>
                     {j.details.map((d, i) => {
-                      const akun = getAkun(d.kode_akun);
                       return (
                         <tr key={d.id} className={`border-b border-slate-50 hover:bg-slate-50/60 ${i===0?'':'bg-slate-50/20'}`}>
                           {i===0 && (
@@ -1116,18 +1141,15 @@ function JurnalUmumView({ jurnal, akunList, loading, expenses }: {
                           )}
                           {i===0 && (
                             <td className="px-4 py-2.5" rowSpan={j.details.length}>
-                              <p className="font-medium text-slate-800 mb-1">{j.keterangan}</p>
-                              {j.details.map((dd,ii) => {
-                                const aa = getAkun(dd.kode_akun);
-                                return (
-                                  <div key={dd.id} className={`flex items-center gap-1.5 text-[10px] ${ii>0?'mt-0.5':''} ${dd.posisi==='Kredit'?'ml-4':''}`}>
-                                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${dd.posisi==='Debit'?'bg-blue-400':'bg-orange-400'}`}/>
-                                    <span className="font-mono text-slate-500">{dd.kode_akun}</span>
-                                    <span className="text-slate-600">{aa?.nama ?? dd.kode_akun}</span>
-                                    <span className={`ml-auto text-[10px] font-semibold ${dd.posisi==='Debit'?'text-blue-600':'text-orange-600'}`}>{dd.posisi}</span>
-                                  </div>
-                                );
-                              })}
+                              <p className="font-medium text-slate-800 mb-2">{j.keterangan}</p>
+                              {j.details.map((dd,ii) => (
+                                <div key={dd.id} className={`flex items-center gap-2 text-[11px] ${ii>0?'mt-1':''} ${dd.posisi==='Kredit'?'ml-5':''}`}>
+                                  <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${dd.posisi==='Debit'?'bg-blue-400':'bg-orange-400'}`}/>
+                                  <span className="font-mono text-slate-400 shrink-0">{dd.kode_akun}</span>
+                                  <span className={`font-semibold ${dd.posisi==='Debit'?'text-blue-700':'text-orange-600'}`}>{namaAkun(dd.kode_akun, akunList)}</span>
+                                  <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold ${dd.posisi==='Debit'?'bg-blue-50 text-blue-600':'bg-orange-50 text-orange-600'}`}>{dd.posisi}</span>
+                                </div>
+                              ))}
                             </td>
                           )}
                           <td className="px-4 py-2.5 text-right font-semibold text-blue-700">
