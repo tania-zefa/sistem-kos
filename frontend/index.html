@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harmoni Residence — Sistem Akuntansi Kas Keluar</title>
+  <meta name="description" content="Sistem Informasi Akuntansi Kas Keluar Harmoni Residence Kost Putri" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!--
+    ============================================================
+    CATATAN PENGEMBANGAN
+    ============================================================
+    Aplikasi ini dibangun sebagai Single Page Application (SPA)
+    menggunakan React + TypeScript + Vite.
+
+    File ini adalah entry point untuk static preview.
+    Untuk menjalankan aplikasi yang sesungguhnya, gunakan:
+      npm run dev   → Development server
+      npm run build → Production build
+
+    Hasil build ada di folder /docs (GitHub Pages)
+    atau /dist (lokal).
+
+    Akses langsung: https://tania-zefa.github.io/sistem-kos/
+    ============================================================
+  -->
+  <div id="root"></div>
+
+  <!-- Redirect ke SPA jika diakses langsung -->
+  <script>
+    // Cek apakah React sudah terpasang (production build)
+    if (!document.getElementById('root').children.length) {
+      const isProd = window.location.hostname !== 'localhost';
+      if (isProd) {
+        window.location.href = 'https://tania-zefa.github.io/sistem-kos/';
+      } else {
+        document.body.innerHTML = `
+          <div style="font-family:Inter,sans-serif;max-width:600px;margin:80px auto;padding:0 24px;text-align:center">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d2;border-radius:16px;padding:40px">
+              <h1 style="color:#166534;margin:0 0 8px">Harmoni Residence</h1>
+              <p style="color:#15803d;margin:0 0 24px">Sistem Informasi Akuntansi Kas Keluar</p>
+              <p style="color:#6b7280;font-size:14px;margin:0 0 24px">
+                Untuk menjalankan aplikasi, gunakan perintah berikut di terminal:
+              </p>
+              <code style="display:block;background:#1e293b;color:#a7f3d0;padding:16px;border-radius:12px;font-size:14px;margin-bottom:24px">
+                npm run dev
+              </code>
+              <p style="color:#9ca3af;font-size:13px">
+                Atau akses versi live di:<br>
+                <a href="https://tania-zefa.github.io/sistem-kos/" style="color:#16a34a">
+                  tania-zefa.github.io/sistem-kos
+                </a>
+              </p>
+            </div>
+          </div>`;
+      }
+    }
+  </script>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

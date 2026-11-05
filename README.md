@@ -1,91 +1,64 @@
-# 🏠 Sistem Informasi Akuntansi Kas Keluar — Harmoni Residence
+# 🏠 Harmoni Residence — Sistem Informasi Akuntansi Kas Keluar
 
-Aplikasi pencatatan pengeluaran kas operasional untuk usaha kos-kosan berbasis React + TypeScript + Supabase.
+Aplikasi pencatatan pengeluaran kas dan pembukuan akuntansi (double-entry) untuk usaha kos-kosan, dibangun dengan React + TypeScript + Supabase.
 
 ---
 
-## 🚀 Cara Menjalankan Sistem
+## 🚀 Akses Sistem
+
+### ▶ Jalankan Langsung (Online)
+
+> **[https://tania-zefa.github.io/sistem-kos/](https://tania-zefa.github.io/sistem-kos/)**
+
+Tidak perlu instalasi apapun — langsung buka di browser.
+
+---
+
+## 💻 Jalankan Secara Lokal
 
 ### Prasyarat
 - [Node.js](https://nodejs.org) v18 atau lebih baru
 - Akun [Supabase](https://supabase.com)
 
----
+### Langkah Instalasi
 
-### 1. Clone Repository
-
+**1. Clone Repository**
 ```bash
 git clone https://github.com/tania-zefa/sistem-kos.git
 cd sistem-kos
 ```
 
-### 2. Install Dependencies
-
+**2. Install Dependencies**
 ```bash
 npm install
 ```
 
-### 3. Konfigurasi Environment
-
-Salin file template lalu isi dengan kredensial Supabase:
-
+**3. Konfigurasi Environment**
 ```bash
 cp .env.example .env
 ```
-
 Edit `.env`:
-
 ```env
 VITE_SUPABASE_URL=https://lkmrkdkoslwvjnqkbntl.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
-> Kredensial dapat ditemukan di **Supabase Dashboard → Project Settings → API**
+**4. Setup Database Supabase**
 
-### 4. Jalankan Migration Database
+Buka **[Supabase SQL Editor](https://supabase.com/dashboard/project/lkmrkdkoslwvjnqkbntl/sql/new)** dan jalankan file berikut secara berurutan:
 
-Buka **Supabase Dashboard → SQL Editor**, lalu jalankan kedua file berikut secara berurutan:
+| Urutan | File | Keterangan |
+|--------|------|------------|
+| 1 | `backend/schema.sql` | Buat semua tabel & RLS |
+| 2 | `backend/seed.sql` | Data awal & chart of accounts |
+| 3 | `backend/seed_tambahan.sql` | Data contoh tambahan |
+| 4 | `backend/triggers.sql` | Trigger & view akuntansi |
 
-1. `supabase/migrations/20261103025626_create_cash_expenses_table.sql`
-2. `supabase/migrations/20261103031023_create_property_settings_table.sql`
-
-### 5. Jalankan Aplikasi
-
+**5. Jalankan Aplikasi**
 ```bash
 npm run dev
 ```
-
-Buka browser dan akses: **[http://localhost:5173](http://localhost:5173)**
-
----
-
-## 📦 Build Produksi
-
-```bash
-npm run build
-npm run preview
-```
-
----
-
-## 🗂️ Fitur Utama
-
-| Fitur | Deskripsi |
-|-------|-----------|
-| 📊 Dashboard | Ringkasan keuangan, grafik bulanan, dan riwayat transaksi terkini |
-| 📒 Buku Transaksi | Pencatatan, pencarian, filter, edit, dan hapus pengeluaran kas |
-| 📈 Laporan Akuntansi | Rekapitulasi beban per kategori, ekspor CSV, cetak laporan |
-| 🏷️ Master Kategori | 8 kategori biaya operasional (Listrik, Air, WiFi, dll.) |
-| ⚙️ Pengaturan | Manajemen profil usaha kos |
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend:** React 18 + TypeScript + Vite
-- **Styling:** Tailwind CSS
-- **Database:** Supabase (PostgreSQL)
-- **Icons:** Lucide React
+Buka: **[http://localhost:5173/sistem-kos/](http://localhost:5173/sistem-kos/)**
 
 ---
 
@@ -93,18 +66,86 @@ npm run preview
 
 ```
 sistem-kos/
-├── src/
-│   ├── App.tsx          # Komponen utama & seluruh UI
-│   ├── main.tsx         # Entry point React
-│   ├── index.css        # Global styles (Tailwind)
+│
+├── backend/                    # SQL Database
+│   ├── schema.sql              # DDL: definisi semua tabel & RLS
+│   ├── seed.sql                # Data awal: akun, properti, transaksi
+│   ├── seed_tambahan.sql       # Data contoh tambahan
+│   └── triggers.sql            # Trigger, function, view akuntansi
+│
+├── frontend/                   # Referensi statis frontend
+│   ├── index.html              # HTML entry point
+│   ├── script.js               # Logic & helper functions
+│   └── style.css               # Global stylesheet & design tokens
+│
+├── src/                        # Source code React (TypeScript)
+│   ├── App.tsx                 # Komponen utama + semua halaman
+│   ├── main.tsx                # Bootstrap React
+│   ├── index.css               # Tailwind CSS
 │   └── lib/
-│       └── supabase.ts  # Konfigurasi Supabase client
-├── supabase/
-│   └── migrations/      # SQL migration database
-├── .env.example         # Template environment variables
-└── README.md
+│       └── supabase.ts         # Supabase client
+│
+├── docs/                       # Build produksi (GitHub Pages)
+├── supabase/migrations/        # Migration history
+├── .env.example                # Template environment variables
+├── index.html                  # HTML root (Vite)
+├── package.json                # Dependencies & scripts
+├── tailwind.config.js          # Tailwind configuration
+├── vite.config.ts              # Vite configuration
+└── README.md                   # Dokumentasi ini
 ```
 
 ---
 
-> Dibuat untuk keperluan sistem informasi akuntansi kos-kosan — Universitas Diponegoro
+## 🗄️ Skema Database
+
+### Tabel Utama
+
+| Tabel | Keterangan |
+|-------|-----------|
+| `cash_expenses` | Pencatatan pengeluaran kas harian |
+| `property_settings` | Profil & pengaturan properti kos |
+| `akun` | Chart of Accounts (21 akun) |
+| `jurnal_umum` | Header entri jurnal |
+| `jurnal_detail` | Baris debit/kredit per jurnal |
+
+### View Akuntansi (dari triggers.sql)
+
+| View | Keterangan |
+|------|-----------|
+| `v_saldo_akun` | Saldo berjalan per akun |
+| `v_neraca_saldo` | Neraca saldo trial balance |
+
+---
+
+## 📊 Fitur Sistem
+
+| Menu | Fitur |
+|------|-------|
+| **Dashboard** | Ringkasan keuangan, grafik 6 bulan, tagihan pending |
+| **Buku Transaksi** | CRUD transaksi, filter multi-dimensi, export CSV |
+| **Buku Besar** | Jurnal Umum, Buku Besar per akun, Neraca Saldo, Daftar Akun |
+| **Laporan** | Rekapitulasi per kategori, ringkasan status pembayaran |
+| **Kategori** | Master 8 kategori biaya operasional |
+| **Pengaturan** | Profil usaha kos |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Teknologi |
+|-------|-----------|
+| Frontend | React 18 + TypeScript + Vite |
+| Styling | Tailwind CSS v3 |
+| Database | Supabase (PostgreSQL) |
+| Auth | Supabase Row Level Security (RLS) |
+| Deploy | GitHub Pages |
+| Icons | Lucide React |
+
+---
+
+## 👩‍💻 Pengembang
+
+**Tania Zefa** — Universitas Diponegoro, 2026
+
+Repository: [github.com/tania-zefa/sistem-kos](https://github.com/tania-zefa/sistem-kos)
